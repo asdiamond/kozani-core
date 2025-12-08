@@ -27,7 +27,8 @@
       "kozaniSecondary": [
         {
           "id": "kozaniSecondaryView",
-          "name": "Kozani"
+          "name": "Kozani",
+          "type": "webview"
         }
       ]
     },
