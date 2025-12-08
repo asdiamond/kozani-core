@@ -8,10 +8,29 @@
   },
   "categories": ["Other"],
   "activationEvents": [
+    "onStartupFinished",
+    "onView:kozaniSecondaryView",
     "onCommand:kozani-ext.helloWorld"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "kozaniSecondary",
+          "title": "Kozani",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "kozaniSecondary": [
+        {
+          "id": "kozaniSecondaryView",
+          "name": "Kozani"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "kozani-ext.helloWorld",
