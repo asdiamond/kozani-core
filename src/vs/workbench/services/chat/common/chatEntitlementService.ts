@@ -183,7 +183,10 @@ const defaultChat = {
 	extensionId: product.defaultChatAgent?.extensionId ?? '',
 	chatExtensionId: product.defaultChatAgent?.chatExtensionId ?? '',
 	upgradePlanUrl: product.defaultChatAgent?.upgradePlanUrl ?? '',
-	provider: product.defaultChatAgent?.provider ?? { default: { id: '' }, enterprise: { id: '' } },
+	provider: {
+		default: product.defaultChatAgent?.provider?.default ?? { id: '', name: '' },
+		enterprise: product.defaultChatAgent?.provider?.enterprise ?? { id: '', name: '' }
+	},
 	providerUriSetting: product.defaultChatAgent?.providerUriSetting ?? '',
 	providerScopes: product.defaultChatAgent?.providerScopes ?? [[]],
 	entitlementUrl: product.defaultChatAgent?.entitlementUrl ?? '',
@@ -581,11 +584,19 @@ interface IQuotas {
 export class ChatEntitlementRequests extends Disposable {
 
 	static providerId(configurationService: IConfigurationService): string {
-		if (configurationService.getValue<string | undefined>(`${defaultChat.completionsAdvancedSetting}.authProvider`) === defaultChat.provider.enterprise.id) {
-			return defaultChat.provider.enterprise.id;
+		const enterpriseId = defaultChat.provider.enterprise?.id ?? '';
+		const defaultId = defaultChat.provider.default?.id ?? '';
+
+		// No provider configured; skip auth
+		if (!enterpriseId && !defaultId) {
+			return '';
 		}
 
-		return defaultChat.provider.default.id;
+		if (configurationService.getValue<string | undefined>(`${defaultChat.completionsAdvancedSetting}.authProvider`) === enterpriseId) {
+			return enterpriseId;
+		}
+
+		return defaultId;
 	}
 
 	private state: IEntitlements;
@@ -700,6 +711,10 @@ export class ChatEntitlementRequests extends Disposable {
 	}
 
 	private async doGetSessions(providerId: string): Promise<readonly AuthenticationSession[]> {
+		if (!providerId) {
+			return [];
+		}
+
 		const preferredAccountName = this.authenticationExtensionsService.getAccountPreference(defaultChat.chatExtensionId, providerId) ?? this.authenticationExtensionsService.getAccountPreference(defaultChat.extensionId, providerId);
 		let preferredAccount: AuthenticationSessionAccount | undefined;
 		for (const account of await this.authenticationService.getAccounts(providerId)) {

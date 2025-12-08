@@ -3,6 +3,10 @@
   "displayName": "Kozani Extension",
   "publisher": "kozani",
   "version": "0.0.1",
+  "enabledApiProposals": [
+    "chatProvider",
+    "defaultChatParticipant"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -14,6 +18,20 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "chatParticipants": [
+      {
+        "id": "kozani.chat",
+        "name": "Kozani",
+        "description": "Kozani chat agent",
+        "isDefault": true,
+        "commands": [],
+        "modes": [
+          "agent",
+          "ask",
+          "edit"
+        ]
+      }
+    ],
     "viewsContainers": {
       "secondarySidebar": [
         {

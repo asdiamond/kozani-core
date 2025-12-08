@@ -47,6 +47,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerWebviewViewProvider('kozaniSecondaryView', provider)
 	);
 
+	// Register a stub chat participant; logic will be added later.
+	const chatParticipant = vscode.chat.createChatParticipant('kozani.chat', async (_request, _context, response, _token) => {
+		response.markdown('Kozani chat is not implemented yet.');
+		return {
+			metadata: {
+				title: 'Kozani Chat'
+			}
+		};
+	});
+	chatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'icon.svg');
+	context.subscriptions.push(chatParticipant);
+
 	const helloCommand = vscode.commands.registerCommand('kozani-ext.helloWorld', () => {
 		vscode.window.showInformationMessage('Hello from Kozani Extension!');
 	});
