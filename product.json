@@ -98,16 +98,13 @@
 		"signUpUrl": "",
 		"provider": {
 			"default": {
-				"id": "",
-				"name": ""
-			},
-			"enterprise": {
-				"id": "",
-				"name": ""
+				"id": "github",
+				"name": "GitHub"
 			}
 		},
-		"providerUriSetting": "",
-		"providerScopes": [],
+		"providerScopes": [
+			["read:user", "user:email"]
+		],
 		"entitlementUrl": "",
 		"entitlementSignupLimitedUrl": "",
 		"chatQuotaExceededContext": "",

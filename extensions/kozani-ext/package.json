@@ -12,12 +12,21 @@
   },
   "categories": ["Other"],
   "activationEvents": [
-    "onStartupFinished",
-    "onView:kozaniSecondaryView",
-    "onCommand:kozani-ext.helloWorld"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "kozani",
+        "name": "Kozani",
+        "family": "kozani",
+        "version": "1.0",
+        "maxInputTokens": 128000,
+        "maxOutputTokens": 16384,
+        "isDefault": true
+      }
+    ],
     "chatParticipants": [
       {
         "id": "kozani.chat",
@@ -32,28 +41,14 @@
         ]
       }
     ],
-    "viewsContainers": {
-      "secondarySidebar": [
-        {
-          "id": "kozaniSecondary",
-          "title": "Kozani",
-          "icon": "media/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "kozaniSecondary": [
-        {
-          "id": "kozaniSecondaryView",
-          "name": "Kozani",
-          "type": "webview"
-        }
-      ]
-    },
     "commands": [
       {
-        "command": "kozani-ext.helloWorld",
-        "title": "Kozani: Hello World"
+        "command": "kozani-ext.signIn",
+        "title": "Kozani: Sign In with GitHub"
+      },
+      {
+        "command": "kozani-ext.signOut",
+        "title": "Kozani: Sign Out"
       }
     ]
   },

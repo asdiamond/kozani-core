@@ -546,13 +546,11 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 
 	private async checkExtensionInstallation(context: ChatEntitlementContext): Promise<void> {
 
-		// When developing extensions, await registration and then check
+		// Kozani: Always mark as installed in extension development mode
+		// This bypasses the extension detection which may not work reliably
 		if (this.environmentService.isExtensionDevelopment) {
-			await this.extensionService.whenInstalledExtensionsRegistered();
-			if (this.extensionService.extensions.find(ext => ExtensionIdentifier.equals(ext.identifier, defaultChat.chatExtensionId))) {
-				context.update({ installed: true, disabled: false, untrusted: false });
-				return;
-			}
+			context.update({ installed: true, disabled: false, untrusted: false });
+			return;
 		}
 
 		// Await extensions to be ready to be queried

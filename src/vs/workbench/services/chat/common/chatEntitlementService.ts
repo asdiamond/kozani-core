@@ -1203,7 +1203,8 @@ export class ChatEntitlementContext extends Disposable {
 		this.untrustedContext = ChatEntitlementContextKeys.Setup.untrusted.bindTo(contextKeyService);
 		this.registeredContext = ChatEntitlementContextKeys.Setup.registered.bindTo(contextKeyService);
 
-		this._state = this.storageService.getObject<IChatEntitlementContextState>(ChatEntitlementContext.CHAT_ENTITLEMENT_CONTEXT_STORAGE_KEY, StorageScope.PROFILE) ?? { entitlement: ChatEntitlement.Unknown, organisations: undefined, sku: undefined };
+		// Kozani: Default to Free entitlement to bypass GitHub Copilot auth requirement
+		this._state = this.storageService.getObject<IChatEntitlementContextState>(ChatEntitlementContext.CHAT_ENTITLEMENT_CONTEXT_STORAGE_KEY, StorageScope.PROFILE) ?? { entitlement: ChatEntitlement.Free, organisations: undefined, sku: undefined };
 
 		this.updateContextSync();
 
