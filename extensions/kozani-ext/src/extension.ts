@@ -11,6 +11,22 @@ const GITHUB_AUTH_SCOPES = ['read:user', 'user:email'];
 // Kozani API endpoint (configure this for your backend)
 const KOZANI_API_URL = process.env.KOZANI_API_URL || 'http://localhost:5000';
 
+// Store conversation IDs keyed by a hash of the first message in the chat session
+const conversationIdMap = new Map<string, string>();
+
+/**
+ * Generate a simple hash from a string for session lookup
+ */
+function hashString(str: string): string {
+	let hash = 0;
+	for (let i = 0; i < str.length; i++) {
+		const char = str.charCodeAt(i);
+		hash = ((hash << 5) - hash) + char;
+		hash = hash & hash;
+	}
+	return hash.toString();
+}
+
 /**
  * Get or create a GitHub authentication session
  */
@@ -25,27 +41,36 @@ async function getGitHubSession(createIfNone: boolean = true): Promise<vscode.Au
 }
 
 /**
- * Send a chat request to the Kozani backend and stream the response
+ * Send a chat request to the Kozani backend and stream the response.
+ * Only sends the latest message - backend reconstructs history from conversation_id.
+ * Returns the conversation_id from the response.
  */
 async function streamFromBackend(
-	messages: Array<{ role: string; content: string }>,
+	message: { role: string; content: string },
 	token: string,
 	signal: AbortSignal,
-	onChunk: (text: string) => void
-): Promise<void> {
+	onChunk: (text: string) => void,
+	conversationId?: string
+): Promise<string | undefined> {
 	const response = await fetch(`${KOZANI_API_URL}/api/chat`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 			'Authorization': `Bearer ${token}`
 		},
-		body: JSON.stringify({ messages }),
+		body: JSON.stringify({
+			messages: [message],
+			conversation_id: conversationId
+		}),
 		signal
 	});
 
 	if (!response.ok) {
 		throw new Error(`API error: ${response.status} ${response.statusText}`);
 	}
+
+	// Read the conversation ID from response header
+	const returnedConversationId = response.headers.get('X-Conversation-Id') || undefined;
 
 	const reader = response.body?.getReader();
 	if (!reader) {
@@ -59,6 +84,8 @@ async function streamFromBackend(
 		const chunk = decoder.decode(value, { stream: true });
 		onChunk(chunk);
 	}
+
+	return returnedConversationId;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -76,6 +103,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		isDefault: true,
 		isUserSelectable: true
 	};
+
+	// Track conversation ID for language model API calls
+	let lmConversationId: string | undefined;
+	let lmSessionKey: string | undefined;
 
 	const modelProvider: vscode.LanguageModelChatProvider = {
 		provideLanguageModelChatInformation(_options, _token) {
@@ -99,29 +130,53 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			// Convert messages to simple format
-			const formattedMessages = messages.map(msg => ({
-				role: msg.role === vscode.LanguageModelChatMessageRole.User ? 'user' : 'assistant',
-				content: msg.content.map(part => {
+			// Get the latest message only - backend will reconstruct history
+			const lastMessage = messages[messages.length - 1];
+			const formattedMessage = {
+				role: lastMessage.role === vscode.LanguageModelChatMessageRole.User ? 'user' : 'assistant',
+				content: lastMessage.content.map(part => {
 					if (part instanceof vscode.LanguageModelTextPart) {
 						return part.value;
 					}
 					return '';
 				}).join('')
-			}));
+			};
+
+			// Determine session key from first message to track conversation
+			const firstMessage = messages[0];
+			const firstContent = firstMessage.content.map(part => {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					return part.value;
+				}
+				return '';
+			}).join('');
+			const currentSessionKey = hashString(firstContent);
+
+			// If session changed, reset conversation ID
+			if (lmSessionKey !== currentSessionKey) {
+				lmSessionKey = currentSessionKey;
+				lmConversationId = conversationIdMap.get(currentSessionKey);
+			}
 
 			try {
 				const abortController = new AbortController();
 				token.onCancellationRequested(() => abortController.abort());
 
-				await streamFromBackend(
-					formattedMessages,
+				const returnedConversationId = await streamFromBackend(
+					formattedMessage,
 					session.accessToken,
 					abortController.signal,
 					(chunk) => {
 						progress.report(new vscode.LanguageModelTextPart(chunk));
-					}
+					},
+					lmConversationId
 				);
+
+				// Store the conversation ID for future messages
+				if (returnedConversationId) {
+					lmConversationId = returnedConversationId;
+					conversationIdMap.set(currentSessionKey, returnedConversationId);
+				}
 			} catch (error) {
 				if (error instanceof Error && error.name !== 'AbortError') {
 					// Backend not available - return a placeholder response
@@ -150,7 +205,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Kozani] Language model provider registered');
 
 	// Register the Kozani chat participant
-	const chatParticipant = vscode.chat.createChatParticipant('kozani.chat', async (request, _context, response, token) => {
+	const chatParticipant = vscode.chat.createChatParticipant('kozani.chat', async (request, context, response, token) => {
 		console.log('[Kozani] Chat participant request:', request.prompt);
 
 		// Get GitHub authentication
@@ -161,6 +216,28 @@ export async function activate(context: vscode.ExtensionContext) {
 			return { metadata: { title: 'Auth Required' } };
 		}
 
+		// Determine conversation ID from chat history
+		// Use the first message in history (or current message if new chat) as session key
+		let sessionKey: string;
+		let conversationId: string | undefined;
+
+		if (context.history.length > 0) {
+			// Existing conversation - get session key from first message
+			const firstTurn = context.history[0];
+			if (firstTurn instanceof vscode.ChatRequestTurn) {
+				sessionKey = hashString(firstTurn.prompt);
+			} else {
+				// Fallback to current prompt
+				sessionKey = hashString(request.prompt);
+			}
+			conversationId = conversationIdMap.get(sessionKey);
+			console.log('[Kozani] Continuing conversation:', conversationId, 'sessionKey:', sessionKey);
+		} else {
+			// New conversation - use current prompt as session key
+			sessionKey = hashString(request.prompt);
+			console.log('[Kozani] Starting new conversation, sessionKey:', sessionKey);
+		}
+
 		// Show progress while waiting for response
 		response.progress('Thinking...');
 
@@ -168,12 +245,19 @@ export async function activate(context: vscode.ExtensionContext) {
 			const abortController = new AbortController();
 			token.onCancellationRequested(() => abortController.abort());
 
-			await streamFromBackend(
-				[{ role: 'user', content: request.prompt }],
+			const returnedConversationId = await streamFromBackend(
+				{ role: 'user', content: request.prompt },
 				session.accessToken,
 				abortController.signal,
-				(chunk) => response.markdown(chunk)
+				(chunk) => response.markdown(chunk),
+				conversationId
 			);
+
+			// Store the conversation ID for future messages in this chat
+			if (returnedConversationId) {
+				conversationIdMap.set(sessionKey, returnedConversationId);
+				console.log('[Kozani] Stored conversation ID:', returnedConversationId, 'for sessionKey:', sessionKey);
+			}
 		} catch (error) {
 			if (error instanceof Error && error.name === 'AbortError') {
 				response.markdown('\n\n*Request cancelled*');
