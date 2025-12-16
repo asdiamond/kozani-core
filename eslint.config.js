@@ -130,6 +130,15 @@ export default tseslint.config(
 			]
 		},
 	},
+	// Disable header check for kozani-ext
+	{
+		files: [
+			'extensions/kozani-ext/**/*.ts',
+		],
+		rules: {
+			'header/header': 'off'
+		}
+	},
 	// TS
 	{
 		files: [

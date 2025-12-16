@@ -152,6 +152,7 @@ export const indentationFilter = Object.freeze<string[]>([
 
 export const copyrightFilter = Object.freeze<string[]>([
 	'**',
+	'!extensions/kozani-ext/**',
 	'!**/*.desktop',
 	'!**/*.json',
 	'!**/*.html',

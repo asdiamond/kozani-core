@@ -538,9 +538,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 		this._providers.set(vendor, provider);
 
-		if (this._hasStoredModelForVendor(vendor)) {
-			this._resolveLanguageModels(vendor, true);
-		}
+		// Always resolve language models on registration (not just when there are stored preferences)
+		// This ensures models are available immediately for readiness checks
+		this._resolveLanguageModels(vendor, true);
 
 		const modelChangeListener = provider.onDidChange(async () => {
 			await this._resolveLanguageModels(vendor, true);
