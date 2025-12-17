@@ -2,12 +2,8 @@ import * as vscode from 'vscode';
 import { getGitHubSession } from '../auth';
 import { streamFromBackend, KOZANI_API_URL } from './api';
 
-// Store conversation IDs keyed by a hash of the first message in the chat session
 const conversationIdMap = new Map<string, string>();
 
-/**
- * Generate a simple hash from a string for session lookup
- */
 function hashString(str: string): string {
 	let hash = 0;
 	for (let i = 0; i < str.length; i++) {
@@ -18,9 +14,6 @@ function hashString(str: string): string {
 	return hash.toString();
 }
 
-/**
- * Register the Kozani language model provider
- */
 export function registerLanguageModelProvider(context: vscode.ExtensionContext): void {
 	const modelInfo = {
 		id: 'kozani-1',
@@ -34,7 +27,6 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 		isUserSelectable: true
 	};
 
-	// Track conversation ID for language model API calls
 	let lmConversationId: string | undefined;
 	let lmSessionKey: string | undefined;
 
@@ -53,14 +45,12 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 		) {
 			console.log('[Kozani] Language model request received');
 
-			// Get GitHub auth
 			const session = await getGitHubSession(false);
 			if (!session) {
 				progress.report(new vscode.LanguageModelTextPart('Please sign in with GitHub to use Kozani.'));
 				return;
 			}
 
-			// Get the latest message only - backend will reconstruct history
 			const lastMessage = messages[messages.length - 1];
 			const formattedMessage = {
 				role: lastMessage.role === vscode.LanguageModelChatMessageRole.User ? 'user' : 'assistant',
@@ -72,7 +62,6 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 				}).join('')
 			};
 
-			// Determine session key from first message to track conversation
 			const firstMessage = messages[0];
 			const firstContent = firstMessage.content.map(part => {
 				if (part instanceof vscode.LanguageModelTextPart) {
@@ -82,7 +71,6 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 			}).join('');
 			const currentSessionKey = hashString(firstContent);
 
-			// If session changed, reset conversation ID
 			if (lmSessionKey !== currentSessionKey) {
 				lmSessionKey = currentSessionKey;
 				lmConversationId = conversationIdMap.get(currentSessionKey);
@@ -102,7 +90,6 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 					lmConversationId
 				);
 
-				// Store the conversation ID for future messages
 				if (returnedConversationId) {
 					lmConversationId = returnedConversationId;
 					conversationIdMap.set(currentSessionKey, returnedConversationId);
@@ -118,7 +105,6 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 		},
 
 		async provideTokenCount(_model, text, _token) {
-			// Simple estimation: ~4 characters per token
 			const content = typeof text === 'string' ? text : text.content.map(p => {
 				if (p instanceof vscode.LanguageModelTextPart) {
 					return p.value;
@@ -129,20 +115,15 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 		}
 	};
 
-	// Register the language model
 	const modelDisposable = vscode.lm.registerLanguageModelChatProvider('kozani', modelProvider);
 	context.subscriptions.push(modelDisposable);
 	console.log('[Kozani] Language model provider registered');
 }
 
-/**
- * Register the Kozani chat participant
- */
 export function registerChatParticipant(context: vscode.ExtensionContext): void {
 	const chatParticipant = vscode.chat.createChatParticipant('kozani.chat', async (request, chatContext, response, token) => {
 		console.log('[Kozani] Chat participant request:', request.prompt);
 
-		// Get GitHub authentication
 		const session = await getGitHubSession();
 
 		if (!session) {
@@ -150,29 +131,23 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 			return { metadata: { title: 'Auth Required' } };
 		}
 
-		// Determine conversation ID from chat history
-		// Use the first message in history (or current message if new chat) as session key
 		let sessionKey: string;
 		let conversationId: string | undefined;
 
 		if (chatContext.history.length > 0) {
-			// Existing conversation - get session key from first message
 			const firstTurn = chatContext.history[0];
 			if (firstTurn instanceof vscode.ChatRequestTurn) {
 				sessionKey = hashString(firstTurn.prompt);
 			} else {
-				// Fallback to current prompt
 				sessionKey = hashString(request.prompt);
 			}
 			conversationId = conversationIdMap.get(sessionKey);
 			console.log('[Kozani] Continuing conversation:', conversationId, 'sessionKey:', sessionKey);
 		} else {
-			// New conversation - use current prompt as session key
 			sessionKey = hashString(request.prompt);
 			console.log('[Kozani] Starting new conversation, sessionKey:', sessionKey);
 		}
 
-		// Show progress while waiting for response
 		response.progress('Thinking...');
 
 		try {
@@ -187,7 +162,6 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 				conversationId
 			);
 
-			// Store the conversation ID for future messages in this chat
 			if (returnedConversationId) {
 				conversationIdMap.set(sessionKey, returnedConversationId);
 				console.log('[Kozani] Stored conversation ID:', returnedConversationId, 'for sessionKey:', sessionKey);
@@ -196,7 +170,6 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 			if (error instanceof Error && error.name === 'AbortError') {
 				response.markdown('\n\n*Request cancelled*');
 			} else {
-				// Backend not available - show helpful message
 				// allow-any-unicode-next-line
 				response.markdown(`👋 Hello **${session.account.label}**!\n\n`);
 				response.markdown(`You asked: *${request.prompt}*\n\n`);

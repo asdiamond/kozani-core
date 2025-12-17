@@ -1,11 +1,5 @@
-// Kozani API endpoint (configure this for your backend)
 export const KOZANI_API_URL = process.env.KOZANI_API_URL || 'http://localhost:5000';
 
-/**
- * Send a chat request to the Kozani backend and stream the response.
- * Only sends the latest message - backend reconstructs history from conversation_id.
- * Returns the conversation_id from the response.
- */
 export async function streamFromBackend(
 	message: { role: string; content: string },
 	token: string,
