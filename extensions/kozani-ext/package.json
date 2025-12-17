@@ -10,7 +10,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "*"
   ],
@@ -41,6 +43,31 @@
         ]
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kozani-database",
+          "title": "Database Explorer",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "kozani-database": [
+        {
+          "id": "kozani.connections",
+          "name": "Connections",
+          "icon": "$(database)",
+          "contextualTitle": "Database Connections"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "kozani.connections",
+        "contents": "No database connections configured.\n[Add Connection](command:kozani-ext.addConnection)"
+      }
+    ],
     "commands": [
       {
         "command": "kozani-ext.signIn",
@@ -49,8 +76,44 @@
       {
         "command": "kozani-ext.signOut",
         "title": "Kozani: Sign Out"
+      },
+      {
+        "command": "kozani-ext.addConnection",
+        "title": "Add Connection",
+        "icon": "$(add)"
+      },
+      {
+        "command": "kozani-ext.removeConnection",
+        "title": "Remove Connection",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "kozani-ext.refreshConnections",
+        "title": "Refresh Connections",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "kozani-ext.addConnection",
+          "when": "view == kozani.connections",
+          "group": "navigation"
+        },
+        {
+          "command": "kozani-ext.refreshConnections",
+          "when": "view == kozani.connections",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "kozani-ext.removeConnection",
+          "when": "view == kozani.connections && viewItem == connection",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
