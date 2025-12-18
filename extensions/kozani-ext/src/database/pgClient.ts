@@ -85,12 +85,18 @@ export async function listDatabases(conn: FullConnection): Promise<string[]> {
 
 /**
  * Lists all schemas in a database (excludes system schemas).
+ * Filters out:
+ * - pg_catalog, information_schema (standard system schemas)
+ * - pg_toast, pg_toast_temp_* (TOAST storage schemas)
+ * - pg_temp_* (session-local temporary schemas)
  */
 export async function listSchemas(conn: FullConnection, database: string): Promise<SchemaInfo[]> {
 	const rows = await query<{ schema_name: string }>(
 		conn,
 		`SELECT schema_name FROM information_schema.schemata
-			WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+			WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
+			AND schema_name NOT LIKE 'pg_toast%'
+			AND schema_name NOT LIKE 'pg_temp%'
 			ORDER BY schema_name`,
 		[],
 		database

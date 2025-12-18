@@ -4,7 +4,7 @@ import { ConnectionManager, FullConnection } from './connectionManager';
 import * as pg from './pgClient';
 
 // Tree item types for contextValue
-type TreeItemType = 'connection' | 'schema' | 'tableFolder' | 'viewFolder' | 'table' | 'view' | 'column';
+type TreeItemType = 'connection' | 'schema' | 'table' | 'view' | 'column';
 
 /**
  * Base class for all database tree items.
@@ -64,66 +64,16 @@ class SchemaTreeItem extends DatabaseTreeItem {
 	}
 
 	async getChildren(): Promise<DatabaseTreeItem[]> {
-		return [
-			new TableFolderTreeItem(this.conn, this.database, this.schemaName),
-			new ViewFolderTreeItem(this.conn, this.database, this.schemaName)
-		];
-	}
-}
-
-/**
- * "Tables" folder within a schema.
- */
-class TableFolderTreeItem extends DatabaseTreeItem {
-	readonly itemType = 'tableFolder' as const;
-
-	constructor(
-		private readonly conn: FullConnection,
-		private readonly database: string,
-		private readonly schemaName: string
-	) {
-		super('Tables', vscode.TreeItemCollapsibleState.Collapsed);
-		this.contextValue = 'tableFolder';
-		this.iconPath = new vscode.ThemeIcon('folder');
-	}
-
-	async getChildren(): Promise<DatabaseTreeItem[]> {
 		try {
 			const items = await pg.listTablesAndViews(this.conn, this.database, this.schemaName);
-			const tables = items.filter(i => i.type === 'table');
-			return tables.map(t => new TableTreeItem(this.conn, this.database, this.schemaName, t.name));
+			return items.map(item =>
+				item.type === 'table'
+					? new TableTreeItem(this.conn, this.database, this.schemaName, item.name)
+					: new ViewTreeItem(this.conn, this.database, this.schemaName, item.name)
+			);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			vscode.window.showErrorMessage(`Failed to list tables: ${msg}`);
-			return [];
-		}
-	}
-}
-
-/**
- * "Views" folder within a schema.
- */
-class ViewFolderTreeItem extends DatabaseTreeItem {
-	readonly itemType = 'viewFolder' as const;
-
-	constructor(
-		private readonly conn: FullConnection,
-		private readonly database: string,
-		private readonly schemaName: string
-	) {
-		super('Views', vscode.TreeItemCollapsibleState.Collapsed);
-		this.contextValue = 'viewFolder';
-		this.iconPath = new vscode.ThemeIcon('folder');
-	}
-
-	async getChildren(): Promise<DatabaseTreeItem[]> {
-		try {
-			const items = await pg.listTablesAndViews(this.conn, this.database, this.schemaName);
-			const views = items.filter(i => i.type === 'view');
-			return views.map(v => new ViewTreeItem(this.conn, this.database, this.schemaName, v.name));
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			vscode.window.showErrorMessage(`Failed to list views: ${msg}`);
+			vscode.window.showErrorMessage(`Failed to list tables/views: ${msg}`);
 			return [];
 		}
 	}
