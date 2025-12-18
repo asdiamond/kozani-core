@@ -1,4 +1,5 @@
 import { KOZANI_API_URL } from '../chat/api';
+import { SchemaData } from './schemaSync';
 
 export interface Connection {
 	id: string;
@@ -58,6 +59,21 @@ export async function deleteConnection(token: string, connectionId: string): Pro
 		headers: {
 			'Authorization': `Bearer ${token}`
 		}
+	});
+
+	if (!response.ok) {
+		throw new Error(`API error: ${response.status} ${response.statusText}`);
+	}
+}
+
+export async function upsertSchema(token: string, connectionId: string, schema: SchemaData): Promise<void> {
+	const response = await fetch(`${CONNECTIONS_URL}/${connectionId}/schema`, {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(schema)
 	});
 
 	if (!response.ok) {

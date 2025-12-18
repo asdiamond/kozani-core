@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { ConnectionManager, FullConnection } from './connectionManager';
 import * as pg from './pgClient';
+import { upsertSchema } from './api';
+import { getGitHubSession } from '../auth';
 
 /**
  * Schema data structure for AI context (matches backend JSONB format).
@@ -58,7 +60,7 @@ async function introspectDatabase(conn: FullConnection, database: string): Promi
  * Syncs schema for a single connection.
  * Returns true if successful, false otherwise.
  */
-async function syncConnectionSchema(conn: FullConnection): Promise<boolean> {
+async function syncConnectionSchema(conn: FullConnection, token: string): Promise<boolean> {
 	if (!conn.credentials) {
 		console.log(`[Kozani] Skipping ${conn.name}: no credentials stored`);
 		return false;
@@ -70,16 +72,16 @@ async function syncConnectionSchema(conn: FullConnection): Promise<boolean> {
 		console.log(`[Kozani] Introspecting schema for "${conn.name}" (${database})...`);
 		const schemaData = await introspectDatabase(conn, database);
 
-		// For now, just print it out
 		const tableCount = Object.values(schemaData.schemas)
 			.flatMap(s => Object.keys(s.tables))
 			.length;
 		const schemaCount = Object.keys(schemaData.schemas).length;
 
 		console.log(`[Kozani] Schema for "${conn.name}": ${schemaCount} schemas, ${tableCount} tables/views`);
-		console.log(`[Kozani] Schema data:`, JSON.stringify(schemaData, null, 2));
 
-		// TODO: POST to backend /api/connections/{id}/schema
+		await upsertSchema(token, conn.id, schemaData);
+		console.log(`[Kozani] Schema synced to backend for "${conn.name}"`);
+
 		return true;
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
@@ -92,7 +94,13 @@ async function syncConnectionSchema(conn: FullConnection): Promise<boolean> {
  * Background job that syncs schemas for all connections with stored credentials.
  * Shows progress in the status bar.
  */
-export function syncAllSchemasInBackground(connectionManager: ConnectionManager): void {
+export async function syncAllSchemasInBackground(connectionManager: ConnectionManager): Promise<void> {
+	const session = await getGitHubSession(false);
+	if (!session) {
+		console.log('[Kozani] No GitHub session, skipping schema sync');
+		return;
+	}
+
 	const connections = connectionManager.getConnections();
 
 	if (connections.length === 0) {
@@ -121,7 +129,7 @@ export function syncAllSchemasInBackground(connectionManager: ConnectionManager)
 					continue;
 				}
 
-				const success = await syncConnectionSchema(fullConn);
+				const success = await syncConnectionSchema(fullConn, session.accessToken);
 				if (success) {
 					synced++;
 				} else {
