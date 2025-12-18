@@ -82,13 +82,13 @@ class SchemaTreeItem extends DatabaseTreeItem {
 /**
  * A table within a schema.
  */
-class TableTreeItem extends DatabaseTreeItem {
+export class TableTreeItem extends DatabaseTreeItem {
 	readonly itemType = 'table' as const;
 
 	constructor(
-		private readonly conn: FullConnection,
-		private readonly database: string,
-		private readonly schemaName: string,
+		public readonly conn: FullConnection,
+		public readonly database: string,
+		public readonly schemaName: string,
 		public readonly tableName: string
 	) {
 		super(tableName, vscode.TreeItemCollapsibleState.Collapsed);
@@ -112,13 +112,13 @@ class TableTreeItem extends DatabaseTreeItem {
 /**
  * A view within a schema.
  */
-class ViewTreeItem extends DatabaseTreeItem {
+export class ViewTreeItem extends DatabaseTreeItem {
 	readonly itemType = 'view' as const;
 
 	constructor(
-		private readonly conn: FullConnection,
-		private readonly database: string,
-		private readonly schemaName: string,
+		public readonly conn: FullConnection,
+		public readonly database: string,
+		public readonly schemaName: string,
 		public readonly viewName: string
 	) {
 		super(viewName, vscode.TreeItemCollapsibleState.Collapsed);

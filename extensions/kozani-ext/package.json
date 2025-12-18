@@ -11,13 +11,40 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Notebooks"
   ],
   "activationEvents": [
-    "*"
+    "*",
+    "onNotebook:kozani-notebook"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "notebooks": [
+      {
+        "type": "kozani-notebook",
+        "displayName": "Kozani SQL Notebook",
+        "selector": [
+          { "filenamePattern": "*.kozani" },
+          { "filenamePattern": "*.sqlbook" }
+        ]
+      }
+    ],
+    "notebookRenderer": [
+      {
+        "id": "kozani.table-renderer",
+        "displayName": "Kozani Table Renderer",
+        "entrypoint": "./out/notebook/tableRenderer.js",
+        "mimeTypes": ["application/x-kozani-table"]
+      }
+    ],
+    "languages": [
+      {
+        "id": "sql",
+        "aliases": ["SQL", "sql"],
+        "extensions": [".sql"]
+      }
+    ],
     "languageModelChatProviders": [
       {
         "vendor": "kozani",
@@ -91,6 +118,16 @@
         "command": "kozani-ext.refreshConnections",
         "title": "Refresh Connections",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "kozani-ext.newQuery",
+        "title": "New Query",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "kozani-ext.newQueryFromTable",
+        "title": "SELECT * FROM this table",
+        "icon": "$(play)"
       }
     ],
     "menus": {
@@ -111,6 +148,21 @@
           "command": "kozani-ext.removeConnection",
           "when": "view == kozani.connections && viewItem == connection",
           "group": "inline"
+        },
+        {
+          "command": "kozani-ext.newQuery",
+          "when": "view == kozani.connections && viewItem == connection",
+          "group": "navigation@1"
+        },
+        {
+          "command": "kozani-ext.newQueryFromTable",
+          "when": "view == kozani.connections && viewItem == table",
+          "group": "navigation@1"
+        },
+        {
+          "command": "kozani-ext.newQueryFromTable",
+          "when": "view == kozani.connections && viewItem == view",
+          "group": "navigation@1"
         }
       ]
     }

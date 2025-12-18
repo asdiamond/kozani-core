@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from './auth';
 import { registerLanguageModelProvider, registerChatParticipant } from './chat';
-import { ConnectionManager, ConnectionTreeProvider, ConnectionTreeItem, showConnectionForm, syncAllSchemasInBackground } from './database';
+import { ConnectionManager, ConnectionTreeProvider, ConnectionTreeItem, TableTreeItem, ViewTreeItem, showConnectionForm, syncAllSchemasInBackground } from './database';
+import { KozaniNotebookSerializer, KozaniNotebookController } from './notebook';
 
 console.log('[Kozani] Extension module loaded');
 
@@ -20,6 +21,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		showCollapseAll: false
 	});
 	context.subscriptions.push(treeView);
+
+	// Register notebook serializer and controller
+	const notebookSerializer = new KozaniNotebookSerializer();
+	const notebookController = new KozaniNotebookController(connectionManager);
+
+	context.subscriptions.push(
+		vscode.workspace.registerNotebookSerializer('kozani-notebook', notebookSerializer),
+		notebookController
+	);
 
 	// Initial load of connections, then sync schemas in background
 	connectionManager.refresh().then(() => {
@@ -60,11 +70,52 @@ export async function activate(context: vscode.ExtensionContext) {
 		await connectionManager.refresh();
 	});
 
+	// New Query command - opens a blank .kozani notebook
+	const newQueryCommand = vscode.commands.registerCommand('kozani-ext.newQuery', async (item: ConnectionTreeItem) => {
+		const connectionId = item?.connection?.id;
+		const connectionName = item?.connection?.name || 'query';
+
+		// Create an untitled notebook with one empty SQL cell
+		const notebookData = new vscode.NotebookData([
+			new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', 'sql')
+		]);
+
+		// Set connection metadata if we have it
+		if (connectionId) {
+			notebookData.metadata = { connectionId };
+		}
+
+		const doc = await vscode.workspace.openNotebookDocument('kozani-notebook', notebookData);
+		await vscode.window.showNotebookDocument(doc);
+	});
+
+	// New Query from Table - opens a notebook with SELECT * FROM table
+	const newQueryFromTableCommand = vscode.commands.registerCommand('kozani-ext.newQueryFromTable', async (item: TableTreeItem | ViewTreeItem) => {
+		if (!item) { return; }
+
+		const tableName = item.itemType === 'table' ? item.tableName : item.viewName;
+		const sql = `SELECT * FROM ${item.schemaName}.${tableName}\nLIMIT 100;`;
+
+		const notebookData = new vscode.NotebookData([
+			new vscode.NotebookCellData(vscode.NotebookCellKind.Code, sql, 'sql')
+		]);
+
+		notebookData.metadata = {
+			connectionId: item.conn.id,
+			database: item.database
+		};
+
+		const doc = await vscode.workspace.openNotebookDocument('kozani-notebook', notebookData);
+		await vscode.window.showNotebookDocument(doc);
+	});
+
 	context.subscriptions.push(
 		signInCommand,
 		addConnectionCommand,
 		removeConnectionCommand,
-		refreshConnectionsCommand
+		refreshConnectionsCommand,
+		newQueryCommand,
+		newQueryFromTableCommand
 	);
 
 	console.log('[Kozani] Extension activated');
