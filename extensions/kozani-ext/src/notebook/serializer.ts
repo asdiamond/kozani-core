@@ -3,26 +3,37 @@ import * as vscode from 'vscode';
 /**
  * Notebook serializer for .kozani and .sqlbook files.
  *
- * File format is simple JSON:
+ * File format is JSON with cells and their outputs (like Jupyter .ipynb):
  * {
  *   "version": 1,
  *   "connectionId": "uuid-of-connection",
  *   "database": "database-name",
  *   "cells": [
- *     { "kind": "sql", "value": "SELECT * FROM users" },
- *     { "kind": "markdown", "value": "# Notes\nThis query fetches all users" }
+ *     {
+ *       "kind": "sql",
+ *       "value": "SELECT * FROM users",
+ *       "outputs": [{ "mime": "text/html", "data": "<table>..." }]
+ *     }
  *   ]
  * }
  */
+
+interface SerializedOutput {
+	mime: string;
+	data: string; // text content or base64 for binary
+}
+
+interface SerializedCell {
+	kind: 'sql' | 'markdown';
+	value: string;
+	outputs?: SerializedOutput[];
+}
 
 interface NotebookFile {
 	version: number;
 	connectionId?: string;
 	database?: string;
-	cells: Array<{
-		kind: 'sql' | 'markdown';
-		value: string;
-	}>;
+	cells: SerializedCell[];
 }
 
 export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
@@ -48,12 +59,24 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 				? vscode.NotebookCellKind.Markup
 				: vscode.NotebookCellKind.Code;
 			const language = cell.kind === 'markdown' ? 'markdown' : 'sql';
-			return new vscode.NotebookCellData(kind, cell.value, language);
+
+			const cellData = new vscode.NotebookCellData(kind, cell.value, language);
+
+			// Restore outputs if present
+			if (cell.outputs && cell.outputs.length > 0) {
+				cellData.outputs = cell.outputs.map(output => {
+					const item = output.mime.startsWith('text/')
+						? vscode.NotebookCellOutputItem.text(output.data, output.mime)
+						: vscode.NotebookCellOutputItem.text(output.data, output.mime); // For now, treat all as text
+					return new vscode.NotebookCellOutput([item]);
+				});
+			}
+
+			return cellData;
 		});
 
 		const notebookData = new vscode.NotebookData(cells);
 
-		// Store connection metadata in notebook metadata
 		notebookData.metadata = {
 			connectionId: data.connectionId,
 			database: data.database,
@@ -66,10 +89,29 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 		data: vscode.NotebookData,
 		_token: vscode.CancellationToken
 	): Promise<Uint8Array> {
-		const cells = data.cells.map(cell => ({
-			kind: cell.kind === vscode.NotebookCellKind.Markup ? 'markdown' as const : 'sql' as const,
-			value: cell.value,
-		}));
+		const cells: SerializedCell[] = data.cells.map(cell => {
+			const serializedCell: SerializedCell = {
+				kind: cell.kind === vscode.NotebookCellKind.Markup ? 'markdown' : 'sql',
+				value: cell.value,
+			};
+
+			// Serialize outputs
+			if (cell.outputs && cell.outputs.length > 0) {
+				serializedCell.outputs = [];
+				for (const output of cell.outputs) {
+					for (const item of output.items) {
+						// Convert Uint8Array to string
+						const text = new TextDecoder().decode(item.data);
+						serializedCell.outputs.push({
+							mime: item.mime,
+							data: text,
+						});
+					}
+				}
+			}
+
+			return serializedCell;
+		});
 
 		const file: NotebookFile = {
 			version: 1,

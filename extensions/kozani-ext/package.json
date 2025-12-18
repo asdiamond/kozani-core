@@ -30,14 +30,6 @@
         ]
       }
     ],
-    "notebookRenderer": [
-      {
-        "id": "kozani.table-renderer",
-        "displayName": "Kozani Table Renderer",
-        "entrypoint": "./media/tableRenderer.js",
-        "mimeTypes": ["application/x-kozani-table"]
-      }
-    ],
     "languages": [
       {
         "id": "sql",

@@ -73,14 +73,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// New Query command - opens a blank .kozani notebook
 	const newQueryCommand = vscode.commands.registerCommand('kozani-ext.newQuery', async (item: ConnectionTreeItem) => {
 		const connectionId = item?.connection?.id;
-		const connectionName = item?.connection?.name || 'query';
 
-		// Create an untitled notebook with one empty SQL cell
+		// Create notebook with a starter cell (non-empty to help VSCode initialize text models)
 		const notebookData = new vscode.NotebookData([
-			new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', 'sql')
+			new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '-- Write your SQL query here\n', 'sql')
 		]);
 
-		// Set connection metadata if we have it
 		if (connectionId) {
 			notebookData.metadata = { connectionId };
 		}

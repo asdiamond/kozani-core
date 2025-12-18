@@ -145,43 +145,77 @@ export class KozaniNotebookController {
 			];
 		}
 
-		// Get columns from first row
 		const columns = Object.keys(rows[0]);
 
-		// Create table data for our custom renderer
-		const tableData = {
-			columns,
-			rows: rows.map(row => columns.map(col => row[col])),
-			rowCount: rows.length,
-			duration,
-		};
-
-		// Return multiple output types - VSCode will pick the best renderer
+		// Use VSCode's built-in text/html renderer - no custom renderer needed
 		return [
 			new vscode.NotebookCellOutput([
-				// Custom table renderer (richest)
-				vscode.NotebookCellOutputItem.json(tableData, 'application/x-kozani-table'),
-				// JSON fallback
-				vscode.NotebookCellOutputItem.json(rows, 'application/json'),
-				// Plain text fallback
-				vscode.NotebookCellOutputItem.text(this.formatAsText(columns, rows, duration)),
+				vscode.NotebookCellOutputItem.text(this.renderHtmlTable(columns, rows, duration), 'text/html'),
 			])
 		];
 	}
 
-	private formatAsText(columns: string[], rows: Record<string, unknown>[], duration: number): string {
-		// Simple ASCII table for text fallback
-		const header = columns.join(' | ');
-		const separator = columns.map(c => '-'.repeat(c.length)).join('-+-');
-		const dataRows = rows.slice(0, 100).map(row =>
-			columns.map(col => String(row[col] ?? 'NULL')).join(' | ')
-		);
+	private renderHtmlTable(columns: string[], rows: Record<string, unknown>[], duration: number): string {
+		const maxRows = 500;
+		const displayRows = rows.slice(0, maxRows);
+		const hasMore = rows.length > maxRows;
 
-		let result = `${header}\n${separator}\n${dataRows.join('\n')}`;
-		if (rows.length > 100) {
-			result += `\n... and ${rows.length - 100} more rows`;
-		}
-		result += `\n\n${rows.length} rows (${duration}ms)`;
-		return result;
+		const escapeHtml = (str: string) => str
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;');
+
+		const formatValue = (value: unknown): string => {
+			if (value === null || value === undefined) return '<span style="color: #808080; font-style: italic;">NULL</span>';
+			if (typeof value === 'object') return escapeHtml(JSON.stringify(value));
+			return escapeHtml(String(value));
+		};
+
+		const headerCells = columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
+		const bodyRows = displayRows.map(row => {
+			const cells = columns.map(col => `<td>${formatValue(row[col])}</td>`).join('');
+			return `<tr>${cells}</tr>`;
+		}).join('');
+
+		const statusText = hasMore
+			? `Showing ${maxRows.toLocaleString()} of ${rows.length.toLocaleString()} rows (${duration}ms)`
+			: `${rows.length.toLocaleString()} row${rows.length !== 1 ? 's' : ''} (${duration}ms)`;
+
+		return `
+			<style>
+				.kozani-table {
+					border-collapse: collapse;
+					font-family: var(--vscode-editor-font-family, monospace);
+					font-size: 13px;
+					width: 100%;
+				}
+				.kozani-table th, .kozani-table td {
+					border: 1px solid var(--vscode-panel-border, #454545);
+					padding: 6px 12px;
+					text-align: left;
+					white-space: nowrap;
+					max-width: 400px;
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+				.kozani-table th {
+					background: var(--vscode-editor-selectionBackground, #264f78);
+					font-weight: 600;
+					position: sticky;
+					top: 0;
+				}
+				.kozani-table tr:nth-child(even) { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+				.kozani-table tr:hover { background: var(--vscode-list-activeSelectionBackground, #094771); }
+				.kozani-status { margin-top: 8px; color: var(--vscode-descriptionForeground, #808080); font-size: 12px; }
+			</style>
+			<div style="overflow-x: auto;">
+				<table class="kozani-table">
+					<thead><tr>${headerCells}</tr></thead>
+					<tbody>${bodyRows}</tbody>
+				</table>
+				<div class="kozani-status">${statusText}</div>
+			</div>
+		`;
 	}
 }
