@@ -1,11 +1,17 @@
 export const KOZANI_API_URL = process.env.KOZANI_API_URL || 'http://localhost:5000';
 
+export interface ContextItem {
+	type: 'sql_cell';
+	content: string;
+}
+
 export async function streamFromBackend(
 	message: { role: string; content: string },
 	token: string,
 	signal: AbortSignal,
 	onChunk: (text: string) => void,
-	conversationId?: string
+	conversationId?: string,
+	context?: ContextItem[]
 ): Promise<string | undefined> {
 	const response = await fetch(`${KOZANI_API_URL}/api/chat`, {
 		method: 'POST',
@@ -15,7 +21,8 @@ export async function streamFromBackend(
 		},
 		body: JSON.stringify({
 			messages: [message],
-			conversation_id: conversationId
+			conversation_id: conversationId,
+			context: context
 		}),
 		signal
 	});

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from '../auth';
-import { streamFromBackend, KOZANI_API_URL } from './api';
+import { streamFromBackend, KOZANI_API_URL, type ContextItem } from './api';
 
 const conversationIdMap = new Map<string, string>();
 
@@ -12,6 +12,39 @@ function hashString(str: string): string {
 		hash = hash & hash;
 	}
 	return hash.toString();
+}
+
+/**
+ * Extract SQL cell content from notebook cell references
+ */
+async function extractContextFromReferences(references: readonly vscode.ChatPromptReference[]): Promise<ContextItem[]> {
+	const context: ContextItem[] = [];
+
+	for (const ref of references) {
+		let uri: vscode.Uri | undefined;
+		if (ref.value instanceof vscode.Uri) {
+			uri = ref.value;
+		} else if (ref.value instanceof vscode.Location) {
+			uri = ref.value.uri;
+		}
+
+		if (uri?.scheme !== 'vscode-notebook-cell') {
+			continue;
+		}
+
+		try {
+			const doc = await vscode.workspace.openTextDocument(uri);
+			const content = doc.getText().trim();
+			if (content) {
+				context.push({ type: 'sql_cell', content });
+				console.log('[Kozani] Added SQL cell context:', content.substring(0, 50) + '...');
+			}
+		} catch (err) {
+			console.warn('[Kozani] Failed to read notebook cell:', err);
+		}
+	}
+
+	return context;
 }
 
 export function registerLanguageModelProvider(context: vscode.ExtensionContext): void {
@@ -150,6 +183,12 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 
 		response.progress('Thinking...');
 
+		// Extract context from references (notebook cells, etc.)
+		const context = await extractContextFromReferences(request.references);
+		if (context.length > 0) {
+			console.log('[Kozani] Sending', context.length, 'context items');
+		}
+
 		try {
 			const abortController = new AbortController();
 			token.onCancellationRequested(() => abortController.abort());
@@ -159,7 +198,8 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 				session.accessToken,
 				abortController.signal,
 				(chunk) => response.markdown(chunk),
-				conversationId
+				conversationId,
+				context
 			);
 
 			if (returnedConversationId) {
