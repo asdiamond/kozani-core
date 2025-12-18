@@ -119,8 +119,12 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
   },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
   "devDependencies": {
     "@types/node": "^18",
+    "@types/pg": "^8.16.0",
     "@types/vscode": "^1.85.0",
     "typescript": "^5.4.0"
   }

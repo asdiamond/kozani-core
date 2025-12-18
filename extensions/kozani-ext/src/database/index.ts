@@ -2,3 +2,4 @@ export { ConnectionManager, ConnectionCredentials, FullConnection } from './conn
 export { ConnectionTreeProvider, ConnectionTreeItem } from './treeProvider';
 export { showConnectionForm } from './connectionForm';
 export { Connection, CreateConnectionRequest } from './api';
+export * as pgClient from './pgClient';
