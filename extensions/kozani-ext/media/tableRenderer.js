@@ -1,36 +1,16 @@
 /**
  * Table renderer for SQL query results in notebooks.
- *
- * This file is bundled separately and runs in the notebook output webview context.
- * It receives table data and renders a styled HTML table.
- *
- * Note: This runs in a browser context (webview), not Node.js.
+ * This runs in the notebook webview context (browser, not Node.js).
  */
 
-interface TableData {
-	columns: string[];
-	rows: unknown[][];
-	rowCount: number;
-	duration: number;
-}
-
-interface OutputItem {
-	json(): TableData;
-}
-
-interface OutputElement {
-	innerHTML: string;
-}
-
-// This is the renderer entry point - VSCode notebook renderer API
-const notebookRenderer = {
-	renderOutputItem(outputItem: OutputItem, element: OutputElement) {
+const activate = (context) => ({
+	renderOutputItem(outputItem, element) {
 		const data = outputItem.json();
 		element.innerHTML = renderTable(data);
 	}
-};
+});
 
-function renderTable(data: TableData): string {
+function renderTable(data) {
 	const { columns, rows, rowCount, duration } = data;
 
 	// Limit displayed rows for performance
@@ -95,7 +75,7 @@ function renderTable(data: TableData): string {
 	const bodyRows = displayRows.map(row => {
 		const cells = row.map((value, i) => {
 			const formatted = formatValue(value);
-			const classes: string[] = [];
+			const classes = [];
 			if (value === null || value === undefined) {
 				classes.push('null-value');
 			} else if (typeof value === 'number') {
@@ -122,7 +102,7 @@ function renderTable(data: TableData): string {
 	`;
 }
 
-function formatValue(value: unknown): string {
+function formatValue(value) {
 	if (value === null || value === undefined) {
 		return 'NULL';
 	}
@@ -135,7 +115,7 @@ function formatValue(value: unknown): string {
 	return escapeHtml(String(value));
 }
 
-function escapeHtml(str: string): string {
+function escapeHtml(str) {
 	return str
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
@@ -144,5 +124,5 @@ function escapeHtml(str: string): string {
 		.replace(/'/g, '&#039;');
 }
 
-// Export for VSCode notebook renderer API
-export const activate = () => notebookRenderer;
+// VSCode notebook renderer API export
+export { activate };

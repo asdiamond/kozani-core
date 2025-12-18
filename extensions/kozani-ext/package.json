@@ -34,7 +34,7 @@
       {
         "id": "kozani.table-renderer",
         "displayName": "Kozani Table Renderer",
-        "entrypoint": "./out/notebook/tableRenderer.js",
+        "entrypoint": "./media/tableRenderer.js",
         "mimeTypes": ["application/x-kozani-table"]
       }
     ],
