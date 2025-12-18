@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from './auth';
 import { registerLanguageModelProvider, registerChatParticipant } from './chat';
-import { ConnectionManager, ConnectionTreeProvider, ConnectionTreeItem, showConnectionForm } from './database';
+import { ConnectionManager, ConnectionTreeProvider, ConnectionTreeItem, showConnectionForm, syncAllSchemasInBackground } from './database';
 
 console.log('[Kozani] Extension module loaded');
 
@@ -21,8 +21,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(treeView);
 
-	// Initial load of connections
-	connectionManager.refresh();
+	// Initial load of connections, then sync schemas in background
+	connectionManager.refresh().then(() => {
+		syncAllSchemasInBackground(connectionManager);
+	});
 
 	// Commands
 	const signInCommand = vscode.commands.registerCommand('kozani-ext.signIn', async () => {
