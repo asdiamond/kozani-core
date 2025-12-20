@@ -1,61 +1,12 @@
 import * as vscode from 'vscode';
 import { ConnectionManager, FullConnection } from './connectionManager';
-import * as pg from './pgClient';
+import { introspectDatabase, SchemaElement } from './introspect';
 import { upsertSchema } from './api';
 import { getGitHubSession } from '../auth';
 import { debug, error } from '../debug';
 
-/**
- * Schema data structure for AI context (matches backend JSONB format).
- */
-export interface SchemaData {
-	schemas: {
-		[schemaName: string]: {
-			tables: {
-				[tableName: string]: {
-					type: 'table' | 'view';
-					columns: Array<{
-						name: string;
-						type: string;
-						nullable: boolean;
-						pk: boolean;
-					}>;
-				};
-			};
-		};
-	};
-}
-
-/**
- * Introspects a single database and returns the full schema structure.
- */
-async function introspectDatabase(conn: FullConnection, database: string): Promise<SchemaData> {
-	const schemaData: SchemaData = { schemas: {} };
-
-	const schemas = await pg.listSchemas(conn, database);
-
-	for (const schema of schemas) {
-		schemaData.schemas[schema.name] = { tables: {} };
-
-		const tablesAndViews = await pg.listTablesAndViews(conn, database, schema.name);
-
-		for (const item of tablesAndViews) {
-			const columns = await pg.listColumns(conn, database, schema.name, item.name);
-
-			schemaData.schemas[schema.name].tables[item.name] = {
-				type: item.type,
-				columns: columns.map(col => ({
-					name: col.name,
-					type: col.type,
-					nullable: col.nullable,
-					pk: col.isPrimaryKey,
-				})),
-			};
-		}
-	}
-
-	return schemaData;
-}
+// Re-export for external use
+export type { SchemaElement } from './introspect';
 
 /**
  * Syncs schema for a single connection.
@@ -71,16 +22,13 @@ async function syncConnectionSchema(conn: FullConnection, token: string): Promis
 
 	try {
 		debug(`Introspecting schema for "${conn.name}" (${database})...`);
-		const schemaData = await introspectDatabase(conn, database);
+		const elements = await introspectDatabase(conn, database);
 
-		const tableCount = Object.values(schemaData.schemas)
-			.flatMap(s => Object.keys(s.tables))
-			.length;
-		const schemaCount = Object.keys(schemaData.schemas).length;
+		// Count unique tables for logging
+		const tables = new Set(elements.map(e => `${e.table_schema}.${e.table_name}`));
+		debug(`Schema for "${conn.name}": ${elements.length} columns across ${tables.size} tables/views`);
 
-		debug(`Schema for "${conn.name}": ${schemaCount} schemas, ${tableCount} tables/views`);
-
-		await upsertSchema(token, conn.id, schemaData);
+		await upsertSchema(token, conn.id, elements);
 		debug(`Schema synced to backend for "${conn.name}"`);
 
 		return true;
