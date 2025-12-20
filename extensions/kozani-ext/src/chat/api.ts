@@ -1,3 +1,5 @@
+import { debug } from '../debug';
+
 export const KOZANI_API_URL = process.env.KOZANI_API_URL || 'http://localhost:5000';
 
 export interface ContextItem {
@@ -13,17 +15,20 @@ export async function streamFromBackend(
 	conversationId?: string,
 	context?: ContextItem[]
 ): Promise<string | undefined> {
+	const body = {
+		messages: [message],
+		conversation_id: conversationId,
+		context: context || []
+	};
+	debug('API request body:', JSON.stringify(body, null, 2));
+
 	const response = await fetch(`${KOZANI_API_URL}/api/chat`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 			'Authorization': `Bearer ${token}`
 		},
-		body: JSON.stringify({
-			messages: [message],
-			conversation_id: conversationId,
-			context: context
-		}),
+		body: JSON.stringify(body),
 		signal
 	});
 

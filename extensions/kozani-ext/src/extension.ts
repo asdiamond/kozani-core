@@ -3,11 +3,14 @@ import { getGitHubSession } from './auth';
 import { registerLanguageModelProvider, registerChatParticipant } from './chat';
 import { ConnectionManager, ConnectionTreeProvider, ConnectionTreeItem, TableTreeItem, ViewTreeItem, showConnectionForm, syncAllSchemasInBackground } from './database';
 import { KozaniNotebookSerializer, KozaniNotebookController } from './notebook';
+import { initDebug, debug } from './debug';
 
 console.log('[Kozani] Extension module loaded');
 
 export async function activate(context: vscode.ExtensionContext) {
-	console.log('[Kozani] Extension activating...');
+	// Initialize debug logging (only outputs in development mode)
+	initDebug(context);
+	debug('Extension activating...');
 
 	registerLanguageModelProvider(context);
 	registerChatParticipant(context);
@@ -117,9 +120,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		newQueryFromTableCommand
 	);
 
-	console.log('[Kozani] Extension activated');
+	debug('Extension activated');
 }
 
 export function deactivate() {
-	console.log('[Kozani] Extension deactivated');
+	debug('Extension deactivated');
 }

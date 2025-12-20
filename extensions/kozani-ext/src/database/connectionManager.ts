@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import { debug } from '../debug';
 
 const CONNECTIONS_KEY = 'kozani.connections';
 const CREDENTIALS_PREFIX = 'kozani.conn.';
@@ -41,7 +42,7 @@ export class ConnectionManager {
 
 	async refresh(): Promise<void> {
 		this.connections = this.globalState.get<Connection[]>(CONNECTIONS_KEY, []);
-		console.log('[Kozani] Loaded connections from globalState:', JSON.stringify(this.connections, null, 2));
+		debug('Loaded connections from globalState:', JSON.stringify(this.connections, null, 2));
 		this._onDidChangeConnections.fire();
 	}
 

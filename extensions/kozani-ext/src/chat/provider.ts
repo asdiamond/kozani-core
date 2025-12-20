@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from '../auth';
 import { streamFromBackend, KOZANI_API_URL, type ContextItem } from './api';
+import { debug, warn } from '../debug';
 
 const conversationIdMap = new Map<string, string>();
 
@@ -20,15 +21,53 @@ function hashString(str: string): string {
 async function extractContextFromReferences(references: readonly vscode.ChatPromptReference[]): Promise<ContextItem[]> {
 	const context: ContextItem[] = [];
 
+	debug('extractContextFromReferences called with', references.length, 'references');
+
 	for (const ref of references) {
+		debug('Reference:', {
+			id: ref.id,
+			valueType: typeof ref.value,
+			valueConstructor: ref.value?.constructor?.name,
+			value: ref.value
+		});
+
 		let uri: vscode.Uri | undefined;
 		if (ref.value instanceof vscode.Uri) {
 			uri = ref.value;
+			debug('Value is Uri:', uri.toString(), 'scheme:', uri.scheme);
 		} else if (ref.value instanceof vscode.Location) {
 			uri = ref.value.uri;
+			debug('Value is Location, uri:', uri.toString(), 'scheme:', uri.scheme);
+		} else {
+			debug('Value is neither Uri nor Location, skipping scheme check');
+			// Try to extract content directly if it's a string or has content
+			if (typeof ref.value === 'string') {
+				context.push({ type: 'sql_cell', content: ref.value });
+				debug('Added string content directly');
+				continue;
+			}
+			// Check if it has a text property (some reference types do)
+			const val = ref.value as { text?: string; content?: string };
+			if (val?.text) {
+				context.push({ type: 'sql_cell', content: val.text });
+				debug('Added text property content');
+				continue;
+			}
+			if (val?.content) {
+				context.push({ type: 'sql_cell', content: val.content });
+				debug('Added content property content');
+				continue;
+			}
 		}
 
-		if (uri?.scheme !== 'vscode-notebook-cell') {
+		if (!uri) {
+			debug('No URI found for reference, skipping');
+			continue;
+		}
+
+		// Accept both vscode-notebook-cell and file schemes for notebook cells
+		if (uri.scheme !== 'vscode-notebook-cell' && !uri.path.endsWith('.kozani') && !uri.path.endsWith('.sqlbook')) {
+			debug('Skipping non-notebook URI:', uri.toString());
 			continue;
 		}
 
@@ -37,10 +76,10 @@ async function extractContextFromReferences(references: readonly vscode.ChatProm
 			const content = doc.getText().trim();
 			if (content) {
 				context.push({ type: 'sql_cell', content });
-				console.log('[Kozani] Added SQL cell context:', content.substring(0, 50) + '...');
+				debug('Added SQL cell context:', content.substring(0, 50) + '...');
 			}
 		} catch (err) {
-			console.warn('[Kozani] Failed to read notebook cell:', err);
+			warn('Failed to read notebook cell:', err);
 		}
 	}
 
@@ -65,7 +104,7 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 
 	const modelProvider: vscode.LanguageModelChatProvider = {
 		provideLanguageModelChatInformation(_options, _token) {
-			console.log('[Kozani] Providing model information');
+			debug('Providing model information');
 			return [modelInfo];
 		},
 
@@ -76,7 +115,7 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 			progress,
 			token
 		) {
-			console.log('[Kozani] Language model request received');
+			debug('Language model request received');
 
 			const session = await getGitHubSession(false);
 			if (!session) {
@@ -130,7 +169,7 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 			} catch (error) {
 				if (error instanceof Error && error.name !== 'AbortError') {
 					// Backend not available - return a placeholder response
-					console.log('[Kozani] Backend not available, returning placeholder');
+					debug('Backend not available, returning placeholder');
 					const placeholder = `Hello! I'm Kozani. The backend at ${KOZANI_API_URL} is not available yet.\n\nTo complete setup, start your backend server.`;
 					progress.report(new vscode.LanguageModelTextPart(placeholder));
 				}
@@ -150,12 +189,12 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 
 	const modelDisposable = vscode.lm.registerLanguageModelChatProvider('kozani', modelProvider);
 	context.subscriptions.push(modelDisposable);
-	console.log('[Kozani] Language model provider registered');
+	debug('Language model provider registered');
 }
 
 export function registerChatParticipant(context: vscode.ExtensionContext): void {
 	const chatParticipant = vscode.chat.createChatParticipant('kozani.chat', async (request, chatContext, response, token) => {
-		console.log('[Kozani] Chat participant request:', request.prompt);
+		debug('Chat participant request:', request.prompt);
 
 		const session = await getGitHubSession();
 
@@ -175,10 +214,10 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 				sessionKey = hashString(request.prompt);
 			}
 			conversationId = conversationIdMap.get(sessionKey);
-			console.log('[Kozani] Continuing conversation:', conversationId, 'sessionKey:', sessionKey);
+			debug('Continuing conversation:', conversationId, 'sessionKey:', sessionKey);
 		} else {
 			sessionKey = hashString(request.prompt);
-			console.log('[Kozani] Starting new conversation, sessionKey:', sessionKey);
+			debug('Starting new conversation, sessionKey:', sessionKey);
 		}
 
 		response.progress('Thinking...');
@@ -186,7 +225,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 		// Extract context from references (notebook cells, etc.)
 		const context = await extractContextFromReferences(request.references);
 		if (context.length > 0) {
-			console.log('[Kozani] Sending', context.length, 'context items');
+			debug('Sending', context.length, 'context items');
 		}
 
 		try {
@@ -204,7 +243,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 
 			if (returnedConversationId) {
 				conversationIdMap.set(sessionKey, returnedConversationId);
-				console.log('[Kozani] Stored conversation ID:', returnedConversationId, 'for sessionKey:', sessionKey);
+				debug('Stored conversation ID:', returnedConversationId, 'for sessionKey:', sessionKey);
 			}
 		} catch (error) {
 			if (error instanceof Error && error.name === 'AbortError') {
@@ -229,5 +268,5 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 
 	chatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'icon.svg');
 	context.subscriptions.push(chatParticipant);
-	console.log('[Kozani] Chat participant registered');
+	debug('Chat participant registered');
 }

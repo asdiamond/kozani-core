@@ -3,6 +3,7 @@ import { ConnectionManager, FullConnection } from './connectionManager';
 import * as pg from './pgClient';
 import { upsertSchema } from './api';
 import { getGitHubSession } from '../auth';
+import { debug, error } from '../debug';
 
 /**
  * Schema data structure for AI context (matches backend JSONB format).
@@ -62,14 +63,14 @@ async function introspectDatabase(conn: FullConnection, database: string): Promi
  */
 async function syncConnectionSchema(conn: FullConnection, token: string): Promise<boolean> {
 	if (!conn.credentials) {
-		console.log(`[Kozani] Skipping ${conn.name}: no credentials stored`);
+		debug(`Skipping ${conn.name}: no credentials stored`);
 		return false;
 	}
 
 	const database = conn.default_database || 'postgres';
 
 	try {
-		console.log(`[Kozani] Introspecting schema for "${conn.name}" (${database})...`);
+		debug(`Introspecting schema for "${conn.name}" (${database})...`);
 		const schemaData = await introspectDatabase(conn, database);
 
 		const tableCount = Object.values(schemaData.schemas)
@@ -77,15 +78,15 @@ async function syncConnectionSchema(conn: FullConnection, token: string): Promis
 			.length;
 		const schemaCount = Object.keys(schemaData.schemas).length;
 
-		console.log(`[Kozani] Schema for "${conn.name}": ${schemaCount} schemas, ${tableCount} tables/views`);
+		debug(`Schema for "${conn.name}": ${schemaCount} schemas, ${tableCount} tables/views`);
 
 		await upsertSchema(token, conn.id, schemaData);
-		console.log(`[Kozani] Schema synced to backend for "${conn.name}"`);
+		debug(`Schema synced to backend for "${conn.name}"`);
 
 		return true;
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
-		console.error(`[Kozani] Failed to sync schema for "${conn.name}": ${msg}`);
+		error(`Failed to sync schema for "${conn.name}": ${msg}`);
 		return false;
 	}
 }
@@ -97,14 +98,14 @@ async function syncConnectionSchema(conn: FullConnection, token: string): Promis
 export async function syncAllSchemasInBackground(connectionManager: ConnectionManager): Promise<void> {
 	const session = await getGitHubSession(false);
 	if (!session) {
-		console.log('[Kozani] No GitHub session, skipping schema sync');
+		debug('No GitHub session, skipping schema sync');
 		return;
 	}
 
 	const connections = connectionManager.getConnections();
 
 	if (connections.length === 0) {
-		console.log('[Kozani] No connections to sync');
+		debug('No connections to sync');
 		return;
 	}
 
@@ -138,7 +139,7 @@ export async function syncAllSchemasInBackground(connectionManager: ConnectionMa
 			}
 
 			if (synced > 0 || failed > 0) {
-				console.log(`[Kozani] Schema sync complete: ${synced} synced, ${failed} skipped/failed`);
+				debug(`Schema sync complete: ${synced} synced, ${failed} skipped/failed`);
 			}
 		}
 	);
