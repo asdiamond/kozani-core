@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from '../auth';
-import { streamFromBackend, KOZANI_API_URL, type ContextItem } from './api';
+import { streamFromBackend, KOZANI_API_URL, type ContextItem, type ChatContext } from './api';
 import { debug, warn } from '../debug';
 
 const conversationIdMap = new Map<string, string>();
@@ -223,10 +223,20 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 		response.progress('Thinking...');
 
 		// Extract context from references (notebook cells, etc.)
-		const context = await extractContextFromReferences(request.references);
-		if (context.length > 0) {
-			debug('Sending', context.length, 'context items');
+		const sqlCells = await extractContextFromReferences(request.references);
+		if (sqlCells.length > 0) {
+			debug('Sending', sqlCells.length, 'SQL cells as context');
 		}
+
+		// Get connection_id from active notebook
+		const activeNotebook = vscode.window.activeNotebookEditor?.notebook;
+		const connectionId = activeNotebook?.metadata?.connectionId as string | undefined;
+		debug('Active notebook connectionId:', connectionId);
+
+		const apiContext: ChatContext = {
+			connection_id: connectionId,
+			sql_cells: sqlCells
+		};
 
 		try {
 			const abortController = new AbortController();
@@ -238,7 +248,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 				abortController.signal,
 				(chunk) => response.markdown(chunk),
 				conversationId,
-				context
+				apiContext
 			);
 
 			if (returnedConversationId) {

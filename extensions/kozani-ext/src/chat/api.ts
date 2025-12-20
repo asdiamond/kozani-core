@@ -7,18 +7,24 @@ export interface ContextItem {
 	content: string;
 }
 
+export interface ChatContext {
+	connection_id?: string;
+	sql_cells: ContextItem[];
+}
+
 export async function streamFromBackend(
 	message: { role: string; content: string },
 	token: string,
 	signal: AbortSignal,
 	onChunk: (text: string) => void,
 	conversationId?: string,
-	context?: ContextItem[]
+	context?: ChatContext
 ): Promise<string | undefined> {
 	const body = {
 		messages: [message],
 		conversation_id: conversationId,
-		context: context || []
+		connection_id: context?.connection_id,
+		sql_cells: context?.sql_cells || []
 	};
 	debug('API request body:', JSON.stringify(body, null, 2));
 
