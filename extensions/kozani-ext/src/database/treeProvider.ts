@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { Connection } from './api';
-import { ConnectionManager, FullConnection } from './connectionManager';
+import { Connection, ConnectionManager, FullConnection } from './connectionManager';
 import * as pg from './pgClient';
 
 // Tree item types for contextValue

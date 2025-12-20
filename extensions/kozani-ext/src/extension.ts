@@ -12,8 +12,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerLanguageModelProvider(context);
 	registerChatParticipant(context);
 
-	// Initialize connection manager and tree view
-	const connectionManager = new ConnectionManager(context.secrets);
+	// Initialize connection manager with local storage
+	const connectionManager = new ConnectionManager(context.globalState, context.secrets);
 	const treeProvider = new ConnectionTreeProvider(connectionManager);
 
 	const treeView = vscode.window.createTreeView('kozani.connections', {
@@ -31,17 +31,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		notebookController
 	);
 
-	// Initial load of connections, then sync schemas in background
-	connectionManager.refresh().then(() => {
-		syncAllSchemasInBackground(connectionManager);
-	});
+	// Load connections from local storage (instant), then sync schemas in background
+	await connectionManager.refresh();
+	syncAllSchemasInBackground(connectionManager);
 
 	// Commands
 	const signInCommand = vscode.commands.registerCommand('kozani-ext.signIn', async () => {
 		const session = await getGitHubSession(true);
 		if (session) {
 			vscode.window.showInformationMessage(`Signed in as ${session.account.label}`);
-			await connectionManager.refresh();
+			// Trigger schema sync after sign-in
+			syncAllSchemasInBackground(connectionManager);
 		}
 	});
 
@@ -68,6 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const refreshConnectionsCommand = vscode.commands.registerCommand('kozani-ext.refreshConnections', async () => {
 		await connectionManager.refresh();
+		syncAllSchemasInBackground(connectionManager);
 	});
 
 	// New Query command - opens a blank .kozani notebook
