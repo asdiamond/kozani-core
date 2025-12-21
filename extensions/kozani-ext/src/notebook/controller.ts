@@ -137,13 +137,16 @@ export class KozaniNotebookController {
 	}
 
 	private createOutputs(rows: Record<string, unknown>[], duration: number, _sql: string): vscode.NotebookCellOutput[] {
+		const RESULT_MIME = 'application/vnd.kozani.query-result+json';
+
 		if (rows.length === 0) {
-			// Include empty JSON for consistency
 			const metadata = { rowCount: 0, duration };
+			const rawJson = JSON.stringify({ rows: [], metadata });
 			return [
 				new vscode.NotebookCellOutput([
 					vscode.NotebookCellOutputItem.text(`Query executed successfully. No rows returned. (${duration}ms)`),
-					vscode.NotebookCellOutputItem.json({ rows: [], metadata }, 'application/vnd.kozani.query-result+json'),
+					// Use .text() not .json() so VS Code doesn't try to render it
+					vscode.NotebookCellOutputItem.text(rawJson, RESULT_MIME),
 				])
 			];
 		}
@@ -151,7 +154,6 @@ export class KozaniNotebookController {
 		const columns = Object.keys(rows[0]);
 
 		// Store both: HTML for display, JSON for raw data (LLM context, export, etc.)
-		// Limit raw data to prevent huge notebook files
 		const maxRawRows = 100;
 		const rawData = {
 			rows: rows.slice(0, maxRawRows),
@@ -162,13 +164,14 @@ export class KozaniNotebookController {
 				duration,
 			}
 		};
+		const rawJson = JSON.stringify(rawData);
 
 		return [
 			new vscode.NotebookCellOutput([
-				// HTML goes first - VS Code will render this
+				// HTML goes first - VS Code renders this
 				vscode.NotebookCellOutputItem.text(this.renderHtmlTable(columns, rows, duration), 'text/html'),
-				// JSON raw data - used for LLM context, exports, etc.
-				vscode.NotebookCellOutputItem.json(rawData, 'application/vnd.kozani.query-result+json'),
+				// Raw data stored as text with custom MIME - not rendered, just stored for programmatic access
+				vscode.NotebookCellOutputItem.text(rawJson, RESULT_MIME),
 			])
 		];
 	}
@@ -177,6 +180,7 @@ export class KozaniNotebookController {
 		const maxRows = 500;
 		const displayRows = rows.slice(0, maxRows);
 		const hasMore = rows.length > maxRows;
+		const pageSize = 10;
 
 		const escapeHtml = (str: string) => str
 			.replace(/&/g, '&amp;')
@@ -191,21 +195,27 @@ export class KozaniNotebookController {
 		};
 
 		const headerCells = columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
-		const bodyRows = displayRows.map(row => {
+		const bodyRows = displayRows.map((row, idx) => {
 			const cells = columns.map(col => `<td>${formatValue(row[col])}</td>`).join('');
-			return `<tr>${cells}</tr>`;
+			return `<tr data-row-idx="${idx}">${cells}</tr>`;
 		}).join('');
 
+		const totalRows = displayRows.length;
+		const totalPages = Math.ceil(totalRows / pageSize);
+		const tableId = `kozani-table-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
 		const statusText = hasMore
-			? `Showing ${maxRows.toLocaleString()} of ${rows.length.toLocaleString()} rows (${duration}ms)`
-			: `${rows.length.toLocaleString()} row${rows.length !== 1 ? 's' : ''} (${duration}ms)`;
+			? `${rows.length.toLocaleString()} rows total (showing max ${maxRows.toLocaleString()}) • ${duration}ms`
+			: `${rows.length.toLocaleString()} row${rows.length !== 1 ? 's' : ''} • ${duration}ms`;
 
 		return `
 			<style>
-				.kozani-table {
-					border-collapse: collapse;
+				.kozani-container {
 					font-family: var(--vscode-editor-font-family, monospace);
 					font-size: 13px;
+				}
+				.kozani-table {
+					border-collapse: collapse;
 					width: 100%;
 				}
 				.kozani-table th, .kozani-table td {
@@ -222,18 +232,92 @@ export class KozaniNotebookController {
 					font-weight: 600;
 					position: sticky;
 					top: 0;
+					z-index: 1;
 				}
 				.kozani-table tr:nth-child(even) { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 				.kozani-table tr:hover { background: var(--vscode-list-activeSelectionBackground, #094771); }
-				.kozani-status { margin-top: 8px; color: var(--vscode-descriptionForeground, #808080); font-size: 12px; }
+				.kozani-pagination {
+					display: flex;
+					align-items: center;
+					gap: 8px;
+					margin-top: 8px;
+					color: var(--vscode-descriptionForeground, #808080);
+					font-size: 12px;
+				}
+				.kozani-pagination button {
+					background: var(--vscode-button-secondaryBackground, #3a3d3e);
+					color: var(--vscode-button-secondaryForeground, #cccccc);
+					border: none;
+					padding: 4px 10px;
+					border-radius: 3px;
+					cursor: pointer;
+					font-size: 12px;
+				}
+				.kozani-pagination button:hover:not(:disabled) {
+					background: var(--vscode-button-secondaryHoverBackground, #45494a);
+				}
+				.kozani-pagination button:disabled {
+					opacity: 0.5;
+					cursor: not-allowed;
+				}
+				.kozani-page-info {
+					min-width: 120px;
+					text-align: center;
+				}
+				.kozani-status {
+					color: var(--vscode-descriptionForeground, #808080);
+					margin-left: auto;
+				}
 			</style>
-			<div style="overflow-x: auto;">
-				<table class="kozani-table">
-					<thead><tr>${headerCells}</tr></thead>
-					<tbody>${bodyRows}</tbody>
-				</table>
-				<div class="kozani-status">${statusText}</div>
+			<div class="kozani-container" id="${tableId}">
+				<div style="overflow-x: auto;">
+					<table class="kozani-table">
+						<thead><tr>${headerCells}</tr></thead>
+						<tbody>${bodyRows}</tbody>
+					</table>
+				</div>
+				<div class="kozani-pagination">
+					<button class="kozani-prev" ${totalPages <= 1 ? 'disabled' : ''}>← Prev</button>
+					<span class="kozani-page-info">Page <span class="kozani-current-page">1</span> of ${totalPages}</span>
+					<button class="kozani-next" ${totalPages <= 1 ? 'disabled' : ''}>Next →</button>
+					<span class="kozani-status">${statusText}</span>
+				</div>
 			</div>
+			<script>
+				(function() {
+					const container = document.getElementById('${tableId}');
+					if (!container) return;
+
+					const tbody = container.querySelector('tbody');
+					const rows = Array.from(tbody.querySelectorAll('tr'));
+					const pageSize = ${pageSize};
+					const totalPages = ${totalPages};
+					let currentPage = 1;
+
+					const prevBtn = container.querySelector('.kozani-prev');
+					const nextBtn = container.querySelector('.kozani-next');
+					const pageInfo = container.querySelector('.kozani-current-page');
+
+					function showPage(page) {
+						currentPage = Math.max(1, Math.min(page, totalPages));
+						const start = (currentPage - 1) * pageSize;
+						const end = start + pageSize;
+
+						rows.forEach((row, idx) => {
+							row.style.display = (idx >= start && idx < end) ? '' : 'none';
+						});
+
+						pageInfo.textContent = currentPage;
+						prevBtn.disabled = currentPage === 1;
+						nextBtn.disabled = currentPage === totalPages;
+					}
+
+					prevBtn.addEventListener('click', () => showPage(currentPage - 1));
+					nextBtn.addEventListener('click', () => showPage(currentPage + 1));
+
+					showPage(1);
+				})();
+			</script>
 		`;
 	}
 }
