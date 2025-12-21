@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from '../auth';
-import { streamFromBackend, KOZANI_API_URL, type ContextItem, type ChatContext } from './api';
+import { streamFromBackend, reportToolCallOutcome, KOZANI_API_URL, type ContextItem, type ChatContext } from './api';
 import { debug, warn } from '../debug';
 
 const conversationIdMap = new Map<string, string>();
@@ -91,11 +91,12 @@ async function extractContextFromReferences(references: readonly vscode.ChatProm
  * Uses the experimental chatParticipantAdditions API for diff review UI.
  */
 function handleToolCall(
+	id: string,
 	name: string,
 	args: Record<string, unknown>,
 	response: vscode.ChatResponseStream
 ): void {
-	debug('Handling tool call:', name, args);
+	debug('Handling tool call:', id, name, args);
 
 	if (name === 'insert_sql_cell') {
 		const sql = args.sql as string;
@@ -300,6 +301,9 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 			sql_cells: sqlCells
 		};
 
+		// Collect tool call IDs for tracking accept/reject outcomes
+		const toolCallIds: string[] = [];
+
 		try {
 			const abortController = new AbortController();
 			token.onCancellationRequested(() => abortController.abort());
@@ -310,7 +314,10 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 				abortController.signal,
 				{
 					onText: (content) => response.markdown(content),
-					onToolCall: (name, args) => handleToolCall(name, args, response)
+					onToolCall: (id, name, args) => {
+						toolCallIds.push(id);
+						handleToolCall(id, name, args, response);
+					}
 				},
 				conversationId,
 				apiContext
@@ -338,10 +345,60 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 			}
 		}
 
-		return { metadata: { title: 'Kozani Chat' } };
+		// Include tool call IDs in metadata for tracking accept/reject outcomes
+		return {
+			metadata: {
+				title: 'Kozani Chat',
+				toolCallIds,
+				conversationId: conversationIdMap.get(sessionKey),
+			}
+		};
 	});
 
 	chatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'icon.svg');
+
+	// Track when users accept/reject proposed edits (experimental API)
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const participant = chatParticipant as any;
+	if (participant.onDidPerformAction) {
+		participant.onDidPerformAction(async (event: vscode.ChatUserActionEvent) => {
+			const action = event.action;
+			debug('User performed action:', action.kind, action);
+
+			// Handle editing session actions (accept/reject all edits for a file)
+			if (action.kind === 'chatEditingSessionAction' || action.kind === 'chatEditingHunkAction') {
+				const outcome = action.outcome === 1 ? 'accepted'
+					: action.outcome === 2 ? 'rejected'
+						: 'saved';
+
+				// Extract tool call IDs and conversation ID from result metadata
+				const metadata = event.result?.metadata as {
+					toolCallIds?: string[];
+					conversationId?: string;
+				} | undefined;
+
+				debug(`Edit ${outcome}:`, action.uri?.toString(), 'toolCallIds:', metadata?.toolCallIds);
+
+				// Report to backend
+				try {
+					const session = await getGitHubSession();
+					if (session && metadata?.toolCallIds?.length) {
+						await reportToolCallOutcome(session.accessToken, {
+							action_kind: action.kind,
+							outcome,
+							uri: action.uri?.toString(),
+							has_remaining_edits: action.hasRemainingEdits,
+							tool_call_ids: metadata.toolCallIds,
+							conversation_id: metadata.conversationId,
+						});
+					}
+				} catch (err) {
+					warn('Failed to report tool call outcome:', err);
+				}
+			}
+		});
+	}
+
 	context.subscriptions.push(chatParticipant);
 	debug('Chat participant registered');
 }

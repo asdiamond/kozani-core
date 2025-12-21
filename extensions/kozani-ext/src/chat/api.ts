@@ -20,6 +20,7 @@ export interface TextEvent {
 
 export interface ToolCallEvent {
 	type: 'tool_call';
+	id: string;
 	name: string;
 	arguments: Record<string, unknown>;
 }
@@ -28,7 +29,37 @@ export type StreamEvent = TextEvent | ToolCallEvent;
 
 export interface StreamCallbacks {
 	onText: (content: string) => void;
-	onToolCall: (name: string, args: Record<string, unknown>) => void;
+	onToolCall: (id: string, name: string, args: Record<string, unknown>) => void;
+}
+
+export interface ToolCallOutcomeReport {
+	action_kind: string;
+	outcome: string;
+	uri?: string;
+	has_remaining_edits?: boolean;
+	tool_call_ids: string[];
+	conversation_id?: string;
+}
+
+/**
+ * Report tool call accept/reject outcome to the backend
+ */
+export async function reportToolCallOutcome(
+	token: string,
+	data: ToolCallOutcomeReport
+): Promise<void> {
+	const response = await fetch(`${KOZANI_API_URL}/api/tc-outcome/report`, {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${token}`,
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(data),
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to report outcome: ${response.status}`);
+	}
 }
 
 export async function streamFromBackend(
@@ -91,8 +122,8 @@ export async function streamFromBackend(
 				if (event.type === 'text') {
 					callbacks.onText(event.content);
 				} else if (event.type === 'tool_call') {
-					debug('Received tool call:', event.name, event.arguments);
-					callbacks.onToolCall(event.name, event.arguments);
+					debug('Received tool call:', event.id, event.name, event.arguments);
+					callbacks.onToolCall(event.id, event.name, event.arguments);
 				}
 			} catch (err) {
 				// Not valid JSON - might be legacy plain text, pass through
@@ -109,7 +140,7 @@ export async function streamFromBackend(
 			if (event.type === 'text') {
 				callbacks.onText(event.content);
 			} else if (event.type === 'tool_call') {
-				callbacks.onToolCall(event.name, event.arguments);
+				callbacks.onToolCall(event.id, event.name, event.arguments);
 			}
 		} catch {
 			callbacks.onText(buffer);
