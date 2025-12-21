@@ -86,6 +86,76 @@ async function extractContextFromReferences(references: readonly vscode.ChatProm
 	return context;
 }
 
+/**
+ * Handle tool calls from the LLM by modifying the notebook
+ */
+async function handleToolCall(
+	name: string,
+	args: Record<string, unknown>,
+	response: vscode.ChatResponseStream
+): Promise<void> {
+	debug('Handling tool call:', name, args);
+
+	if (name === 'insert_sql_cell') {
+		const sql = args.sql as string;
+		const explanation = args.explanation as string | undefined;
+
+		if (!sql) {
+			warn('insert_sql_cell called without sql argument');
+			return;
+		}
+
+		const notebook = vscode.window.activeNotebookEditor?.notebook;
+		if (!notebook) {
+			response.markdown('\n\n⚠️ No notebook is open. Please open a `.kozani` or `.sqlbook` file first.\n');
+			return;
+		}
+
+		// Show explanation if provided
+		if (explanation) {
+			response.markdown(`\n\n${explanation}\n\n`);
+		}
+
+		// Create the new SQL cell
+		const cellData = new vscode.NotebookCellData(
+			vscode.NotebookCellKind.Code,
+			sql,
+			'sql'
+		);
+
+		// Insert at the end of the notebook
+		const edit = new vscode.WorkspaceEdit();
+		const insertPosition = notebook.cellCount;
+		edit.set(notebook.uri, [
+			vscode.NotebookEdit.insertCells(insertPosition, [cellData])
+		]);
+
+		const success = await vscode.workspace.applyEdit(edit);
+
+		if (success) {
+			// allow-any-unicode-next-line
+			response.markdown(`\n\n✅ Added SQL cell to notebook\n`);
+			debug('Successfully inserted SQL cell at position', insertPosition);
+
+			// Optionally reveal the new cell
+			const notebookEditor = vscode.window.activeNotebookEditor;
+			if (notebookEditor) {
+				const newCellIndex = insertPosition;
+				notebookEditor.revealRange(
+					new vscode.NotebookRange(newCellIndex, newCellIndex + 1),
+					vscode.NotebookEditorRevealType.Default
+				);
+			}
+		} else {
+			// allow-any-unicode-next-line
+			response.markdown(`\n\n❌ Failed to add SQL cell to notebook\n`);
+			warn('Failed to apply notebook edit');
+		}
+	} else {
+		warn('Unknown tool call:', name);
+	}
+}
+
 export function registerLanguageModelProvider(context: vscode.ExtensionContext): void {
 	const modelInfo = {
 		id: 'kozani-1',
@@ -156,8 +226,15 @@ export function registerLanguageModelProvider(context: vscode.ExtensionContext):
 					formattedMessage,
 					session.accessToken,
 					abortController.signal,
-					(chunk) => {
-						progress.report(new vscode.LanguageModelTextPart(chunk));
+					{
+						onText: (content) => {
+							progress.report(new vscode.LanguageModelTextPart(content));
+						},
+						onToolCall: (_name, _args) => {
+							// Language model provider doesn't support tool calls directly
+							// Tool calls are handled by the chat participant
+							debug('Tool call received in LM provider (ignored):', _name);
+						}
 					},
 					lmConversationId
 				);
@@ -246,7 +323,10 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 				{ role: 'user', content: request.prompt },
 				session.accessToken,
 				abortController.signal,
-				(chunk) => response.markdown(chunk),
+				{
+					onText: (content) => response.markdown(content),
+					onToolCall: (name, args) => handleToolCall(name, args, response)
+				},
 				conversationId,
 				apiContext
 			);
