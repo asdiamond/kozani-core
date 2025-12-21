@@ -12,10 +12,15 @@ import * as vscode from 'vscode';
  *     {
  *       "kind": "sql",
  *       "value": "SELECT * FROM users",
- *       "outputs": [{ "mime": "text/html", "data": "<table>..." }]
+ *       "outputs": [
+ *         { "mime": "text/html", "data": "<table>..." },
+ *         { "mime": "application/vnd.kozani.query-result+json", "data": "{\"rows\":[...],\"metadata\":{...}}" }
+ *       ]
  *     }
  *   ]
  * }
+ *
+ * Outputs include both HTML (for display) and JSON (raw data for LLM context, export, etc.)
  */
 
 interface SerializedOutput {

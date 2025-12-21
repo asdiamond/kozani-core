@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getGitHubSession } from '../auth';
-import { streamFromBackend, reportToolCallOutcome, KOZANI_API_URL, type ContextItem, type ChatContext } from './api';
+import { streamFromBackend, reportToolCallOutcome, KOZANI_API_URL, type SqlCell, type QueryResultData, type ChatContext } from './api';
 import { debug, warn } from '../debug';
 
 const conversationIdMap = new Map<string, string>();
@@ -15,75 +15,93 @@ function hashString(str: string): string {
 	return hash.toString();
 }
 
-/**
- * Extract SQL cell content from notebook cell references
- */
-async function extractContextFromReferences(references: readonly vscode.ChatPromptReference[]): Promise<ContextItem[]> {
-	const context: ContextItem[] = [];
+const KOZANI_RESULT_MIME = 'application/vnd.kozani.query-result+json';
 
-	debug('extractContextFromReferences called with', references.length, 'references');
+/**
+ * Extract raw query result data from a notebook cell's outputs
+ */
+function extractQueryResult(outputs: readonly vscode.NotebookCellOutput[]): QueryResultData | undefined {
+	for (const output of outputs) {
+		for (const item of output.items) {
+			if (item.mime === KOZANI_RESULT_MIME) {
+				try {
+					return JSON.parse(new TextDecoder().decode(item.data));
+				} catch {
+					// Invalid JSON, skip
+				}
+			}
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Convert a notebook cell to SqlCell format for the API
+ */
+function cellToSqlCell(cell: vscode.NotebookCell): SqlCell | undefined {
+	const sql = cell.document.getText().trim();
+	if (!sql) return undefined;
+
+	return {
+		sql,
+		result: extractQueryResult(cell.outputs)
+	};
+}
+
+/**
+ * Get recent executed cells from the active notebook
+ */
+function getRecentCells(notebook: vscode.NotebookDocument, maxCells = 5): SqlCell[] {
+	const cells = notebook.getCells()
+		.filter(cell => cell.kind === vscode.NotebookCellKind.Code && cell.outputs.length > 0)
+		.slice(-maxCells);
+
+	return cells.map(cellToSqlCell).filter((c): c is SqlCell => c !== undefined);
+}
+
+/**
+ * Extract SQL cells from chat references (when user @mentions a cell)
+ */
+async function extractReferencedCells(
+	references: readonly vscode.ChatPromptReference[],
+	notebook: vscode.NotebookDocument | undefined
+): Promise<SqlCell[]> {
+	const cells: SqlCell[] = [];
 
 	for (const ref of references) {
-		debug('Reference:', {
-			id: ref.id,
-			valueType: typeof ref.value,
-			valueConstructor: ref.value?.constructor?.name,
-			value: ref.value
-		});
-
+		// Get URI from reference
 		let uri: vscode.Uri | undefined;
 		if (ref.value instanceof vscode.Uri) {
 			uri = ref.value;
-			debug('Value is Uri:', uri.toString(), 'scheme:', uri.scheme);
 		} else if (ref.value instanceof vscode.Location) {
 			uri = ref.value.uri;
-			debug('Value is Location, uri:', uri.toString(), 'scheme:', uri.scheme);
-		} else {
-			debug('Value is neither Uri nor Location, skipping scheme check');
-			// Try to extract content directly if it's a string or has content
-			if (typeof ref.value === 'string') {
-				context.push({ type: 'sql_cell', content: ref.value });
-				debug('Added string content directly');
-				continue;
-			}
-			// Check if it has a text property (some reference types do)
-			const val = ref.value as { text?: string; content?: string };
-			if (val?.text) {
-				context.push({ type: 'sql_cell', content: val.text });
-				debug('Added text property content');
-				continue;
-			}
-			if (val?.content) {
-				context.push({ type: 'sql_cell', content: val.content });
-				debug('Added content property content');
-				continue;
-			}
 		}
 
-		if (!uri) {
-			debug('No URI found for reference, skipping');
-			continue;
-		}
-
-		// Accept both vscode-notebook-cell and file schemes for notebook cells
-		if (uri.scheme !== 'vscode-notebook-cell' && !uri.path.endsWith('.kozani') && !uri.path.endsWith('.sqlbook')) {
-			debug('Skipping non-notebook URI:', uri.toString());
+		if (!uri || uri.scheme !== 'vscode-notebook-cell') {
 			continue;
 		}
 
 		try {
 			const doc = await vscode.workspace.openTextDocument(uri);
-			const content = doc.getText().trim();
-			if (content) {
-				context.push({ type: 'sql_cell', content });
-				debug('Added SQL cell context:', content.substring(0, 50) + '...');
+			const sql = doc.getText().trim();
+			if (!sql) continue;
+
+			// Find the cell in the notebook to get its output
+			let result: QueryResultData | undefined;
+			if (notebook) {
+				const cell = notebook.getCells().find(c => c.document.uri.toString() === uri!.toString());
+				if (cell) {
+					result = extractQueryResult(cell.outputs);
+				}
 			}
+
+			cells.push({ sql, result });
 		} catch (err) {
 			warn('Failed to read notebook cell:', err);
 		}
 	}
 
-	return context;
+	return cells;
 }
 
 /**
@@ -285,16 +303,19 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 
 		response.progress('Thinking...');
 
-		// Extract context from references (notebook cells, etc.)
-		const sqlCells = await extractContextFromReferences(request.references);
-		if (sqlCells.length > 0) {
-			debug('Sending', sqlCells.length, 'SQL cells as context');
-		}
-
-		// Get connection_id from active notebook
 		const activeNotebook = vscode.window.activeNotebookEditor?.notebook;
 		const connectionId = activeNotebook?.metadata?.connectionId as string | undefined;
-		debug('Active notebook connectionId:', connectionId);
+
+		// Get referenced cells (explicit @mentions) and recent cells (background context)
+		const referencedCells = await extractReferencedCells(request.references, activeNotebook);
+		const recentCells = activeNotebook ? getRecentCells(activeNotebook, 5) : [];
+
+		// Combine: recent first, then referenced. Dedupe by SQL content.
+		const seenSql = new Set(referencedCells.map(c => c.sql));
+		const uniqueRecentCells = recentCells.filter(c => !seenSql.has(c.sql));
+		const sqlCells = [...uniqueRecentCells, ...referencedCells];
+
+		debug('Context:', { connectionId, referencedCells: referencedCells.length, recentCells: uniqueRecentCells.length });
 
 		const apiContext: ChatContext = {
 			connection_id: connectionId,

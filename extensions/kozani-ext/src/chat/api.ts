@@ -2,14 +2,28 @@ import { debug } from '../debug';
 
 export const KOZANI_API_URL = process.env.KOZANI_API_URL || 'http://localhost:5000';
 
-export interface ContextItem {
-	type: 'sql_cell';
-	content: string;
+/**
+ * Raw query result data from notebook cell outputs.
+ * Matches the format stored in 'application/vnd.kozani.query-result+json'
+ */
+export interface QueryResultData {
+	rows: Record<string, unknown>[];
+	metadata: {
+		columns?: string[];
+		rowCount: number;
+		truncated?: boolean;
+		duration: number;
+	};
+}
+
+export interface SqlCell {
+	sql: string;
+	result?: QueryResultData;  // Present if cell has been executed
 }
 
 export interface ChatContext {
 	connection_id?: string;
-	sql_cells: ContextItem[];
+	sql_cells: SqlCell[];
 }
 
 // Stream event types from backend

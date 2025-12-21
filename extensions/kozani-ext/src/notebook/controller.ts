@@ -138,19 +138,37 @@ export class KozaniNotebookController {
 
 	private createOutputs(rows: Record<string, unknown>[], duration: number, _sql: string): vscode.NotebookCellOutput[] {
 		if (rows.length === 0) {
+			// Include empty JSON for consistency
+			const metadata = { rowCount: 0, duration };
 			return [
 				new vscode.NotebookCellOutput([
-					vscode.NotebookCellOutputItem.text(`Query executed successfully. No rows returned. (${duration}ms)`)
+					vscode.NotebookCellOutputItem.text(`Query executed successfully. No rows returned. (${duration}ms)`),
+					vscode.NotebookCellOutputItem.json({ rows: [], metadata }, 'application/vnd.kozani.query-result+json'),
 				])
 			];
 		}
 
 		const columns = Object.keys(rows[0]);
 
-		// Use VSCode's built-in text/html renderer - no custom renderer needed
+		// Store both: HTML for display, JSON for raw data (LLM context, export, etc.)
+		// Limit raw data to prevent huge notebook files
+		const maxRawRows = 100;
+		const rawData = {
+			rows: rows.slice(0, maxRawRows),
+			metadata: {
+				columns,
+				rowCount: rows.length,
+				truncated: rows.length > maxRawRows,
+				duration,
+			}
+		};
+
 		return [
 			new vscode.NotebookCellOutput([
+				// HTML goes first - VS Code will render this
 				vscode.NotebookCellOutputItem.text(this.renderHtmlTable(columns, rows, duration), 'text/html'),
+				// JSON raw data - used for LLM context, exports, etc.
+				vscode.NotebookCellOutputItem.json(rawData, 'application/vnd.kozani.query-result+json'),
 			])
 		];
 	}
