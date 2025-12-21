@@ -687,7 +687,7 @@ export class Response extends AbstractResponse implements IDisposable {
 				this._responseParts.push({
 					kind: groupKind,
 					uri,
-					edits: groupKind === 'textEditGroup' ? [edits] : edits,
+					edits: [edits], // Both textEditGroup and notebookEditGroup expect array of arrays
 					done: progress.done,
 					isExternalEdit,
 				});

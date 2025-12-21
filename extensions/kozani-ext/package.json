@@ -5,7 +5,8 @@
   "version": "0.0.1",
   "enabledApiProposals": [
     "chatProvider",
-    "defaultChatParticipant"
+    "defaultChatParticipant",
+    "chatParticipantAdditions"
   ],
   "engines": {
     "vscode": "^1.85.0"
