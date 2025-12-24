@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ConnectionManager, FullConnection } from '../database/connectionManager';
 import { query } from '../database/pgClient';
+import { debug, warn } from '../debug';
 
 /**
  * Notebook controller that executes SQL cells against Postgres.
@@ -95,14 +96,18 @@ export class KozaniNotebookController {
 
 	private async getConnection(notebook: vscode.NotebookDocument): Promise<FullConnection | undefined> {
 		const connectionName = notebook.metadata?.connectionName;
+		debug('NotebookController.getConnection: metadata =', notebook.metadata);
+		debug('NotebookController.getConnection: connectionName =', connectionName);
 
 		if (connectionName) {
 			// Fetch full connection with credentials from secret storage
 			const fullConn = await this.connectionManager.getFullConnection(connectionName);
 			if (fullConn?.credentials) {
+				debug('NotebookController.getConnection: Found existing connection', connectionName);
 				return fullConn;
 			}
 			// Connection name was set but credentials not found - fall through to picker
+			warn('NotebookController.getConnection: Connection name set but no credentials found:', connectionName);
 		}
 
 		// No connection set or credentials missing - prompt user to select one
@@ -133,7 +138,40 @@ export class KozaniNotebookController {
 			return undefined;
 		}
 
+		// Save the selected connection to the notebook metadata
+		debug('NotebookController.getConnection: Saving connection to notebook metadata:', picked.connection.name);
+		await this.saveConnectionToNotebook(notebook, picked.connection.name);
+
 		return fullConn;
+	}
+
+	/**
+	 * Save the connection name to the notebook's metadata.
+	 * This persists the connection so it doesn't need to be selected again.
+	 */
+	private async saveConnectionToNotebook(notebook: vscode.NotebookDocument, connectionName: string): Promise<void> {
+		try {
+			const edit = new vscode.WorkspaceEdit();
+
+			// Create updated metadata
+			const newMetadata = {
+				...notebook.metadata,
+				connectionName,
+			};
+
+			// Use NotebookEdit to update metadata
+			const notebookEdit = vscode.NotebookEdit.updateNotebookMetadata(newMetadata);
+			edit.set(notebook.uri, [notebookEdit]);
+
+			const success = await vscode.workspace.applyEdit(edit);
+			if (success) {
+				debug('NotebookController: Saved connection to notebook metadata:', connectionName);
+			} else {
+				warn('NotebookController: Failed to save connection to notebook metadata');
+			}
+		} catch (err) {
+			warn('NotebookController: Error saving connection to notebook:', err);
+		}
 	}
 
 	private createOutputs(rows: Record<string, unknown>[], duration: number, _sql: string): vscode.NotebookCellOutput[] {

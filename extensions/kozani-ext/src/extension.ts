@@ -3,6 +3,7 @@ import { getGitHubSession } from './auth';
 import { registerLanguageModelProvider, registerChatParticipant } from './chat';
 import { ConnectionManager, ConnectionTreeProvider, ConnectionTreeItem, TableTreeItem, ViewTreeItem, showConnectionForm, syncAllSchemasInBackground } from './database';
 import { KozaniNotebookSerializer, KozaniNotebookController } from './notebook';
+import { initializeLspIntegration } from './lsp';
 import { initDebug, debug } from './debug';
 
 console.log('[Kozani] Extension module loaded');
@@ -37,6 +38,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Load connections from local storage (instant), then sync schemas in background
 	await connectionManager.refresh();
 	syncAllSchemasInBackground(connectionManager);
+
+	// Initialize Postgres Language Server integration for SQL autocomplete
+	initializeLspIntegration(context, connectionManager);
 
 	// Commands
 	const signInCommand = vscode.commands.registerCommand('kozani-ext.signIn', async () => {
