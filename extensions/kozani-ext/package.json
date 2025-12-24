@@ -199,7 +199,6 @@
   },
   "dependencies": {
     "pg": "^8.13.1",
-    "vscode-languageclient": "^9.0.1",
     "yaml": "^2.7.0"
   },
   "devDependencies": {
