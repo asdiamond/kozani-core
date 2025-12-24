@@ -21,6 +21,10 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configurationDefaults": {
+      "files.autoSave": "afterDelay",
+      "files.autoSaveDelay": 1000
+    },
     "notebooks": [
       {
         "type": "kozani-notebook",
@@ -118,6 +122,11 @@
         "icon": "$(file-code)"
       },
       {
+        "command": "kozani-ext.newNotebook",
+        "title": "New Kozani Notebook",
+        "icon": "$(new-file)"
+      },
+      {
         "command": "kozani-ext.newQueryFromTable",
         "title": "SELECT * FROM this table",
         "icon": "$(play)"
@@ -126,13 +135,25 @@
     "menus": {
       "view/title": [
         {
+          "command": "kozani-ext.newNotebook",
+          "when": "view == kozani.connections",
+          "group": "navigation@1"
+        },
+        {
           "command": "kozani-ext.addConnection",
           "when": "view == kozani.connections",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "kozani-ext.refreshConnections",
           "when": "view == kozani.connections",
+          "group": "navigation@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "kozani-ext.newNotebook",
+          "when": "explorerResourceIsFolder",
           "group": "navigation"
         }
       ],

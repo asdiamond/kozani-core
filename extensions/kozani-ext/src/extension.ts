@@ -74,7 +74,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		syncAllSchemasInBackground(connectionManager);
 	});
 
-	// New Query command - opens a blank .kozani notebook
+	// New Query command - opens a blank .kozani notebook (in-memory, untitled)
 	const newQueryCommand = vscode.commands.registerCommand('kozani-ext.newQuery', async (item: ConnectionTreeItem) => {
 		const connectionId = item?.connection?.id;
 
@@ -88,6 +88,62 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		const doc = await vscode.workspace.openNotebookDocument('kozani-notebook', notebookData);
+		await vscode.window.showNotebookDocument(doc);
+	});
+
+	// New Notebook command - creates a .kozani file directly on disk (no OS dialog)
+	const newNotebookCommand = vscode.commands.registerCommand('kozani-ext.newNotebook', async (folderUri?: vscode.Uri) => {
+		// Determine the target folder
+		let targetFolder: vscode.Uri;
+
+		if (folderUri) {
+			// Called from explorer context menu with a folder
+			targetFolder = folderUri;
+		} else if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			// Use workspace root
+			targetFolder = vscode.workspace.workspaceFolders[0].uri;
+		} else {
+			// No workspace - fall back to untitled approach
+			vscode.window.showWarningMessage('Open a folder first to create a notebook file.');
+			return;
+		}
+
+		// Generate a unique filename
+		const baseName = 'query';
+		const extension = '.kozani';
+		let counter = 1;
+		let fileUri: vscode.Uri;
+
+		// Find a unique filename
+		while (true) {
+			const fileName = counter === 1 ? `${baseName}${extension}` : `${baseName}-${counter}${extension}`;
+			fileUri = vscode.Uri.joinPath(targetFolder, fileName);
+			try {
+				await vscode.workspace.fs.stat(fileUri);
+				// File exists, try next number
+				counter++;
+			} catch {
+				// File doesn't exist, we can use this name
+				break;
+			}
+		}
+
+		// Create empty notebook content (matches KozaniNotebookSerializer format)
+		const notebookContent = JSON.stringify({
+			version: 1,
+			cells: [
+				{
+					kind: 'sql',
+					value: '-- Write your SQL query here\n'
+				}
+			]
+		}, null, 2);
+
+		// Write the file directly
+		await vscode.workspace.fs.writeFile(fileUri, Buffer.from(notebookContent, 'utf8'));
+
+		// Open the created file
+		const doc = await vscode.workspace.openNotebookDocument(fileUri);
 		await vscode.window.showNotebookDocument(doc);
 	});
 
@@ -117,6 +173,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		removeConnectionCommand,
 		refreshConnectionsCommand,
 		newQueryCommand,
+		newNotebookCommand,
 		newQueryFromTableCommand
 	);
 
