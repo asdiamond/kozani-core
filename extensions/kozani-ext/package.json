@@ -89,7 +89,13 @@
     "viewsWelcome": [
       {
         "view": "kozani.connections",
-        "contents": "No database connections configured.\n[Add Connection](command:kozani-ext.addConnection)"
+        "contents": "Open a folder to start using Kozani.\n[Open Folder](command:vscode.openFolder)",
+        "when": "workspaceFolderCount == 0"
+      },
+      {
+        "view": "kozani.connections",
+        "contents": "No database connections configured.\n[Add Connection](command:kozani-ext.addConnection)",
+        "when": "workspaceFolderCount > 0"
       }
     ],
     "commands": [
@@ -104,49 +110,55 @@
       {
         "command": "kozani-ext.addConnection",
         "title": "Add Connection",
-        "icon": "$(add)"
+        "icon": "$(add)",
+        "enablement": "workspaceFolderCount > 0"
       },
       {
         "command": "kozani-ext.removeConnection",
         "title": "Remove Connection",
-        "icon": "$(trash)"
+        "icon": "$(trash)",
+        "enablement": "workspaceFolderCount > 0"
       },
       {
         "command": "kozani-ext.refreshConnections",
         "title": "Refresh Connections",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "enablement": "workspaceFolderCount > 0"
       },
       {
         "command": "kozani-ext.newQuery",
         "title": "New Query",
-        "icon": "$(file-code)"
+        "icon": "$(file-code)",
+        "enablement": "workspaceFolderCount > 0"
       },
       {
         "command": "kozani-ext.newNotebook",
         "title": "New Kozani Notebook",
-        "icon": "$(new-file)"
+        "icon": "$(new-file)",
+        "enablement": "workspaceFolderCount > 0"
       },
       {
         "command": "kozani-ext.newQueryFromTable",
         "title": "SELECT * FROM this table",
-        "icon": "$(play)"
+        "icon": "$(play)",
+        "enablement": "workspaceFolderCount > 0"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "kozani-ext.newNotebook",
-          "when": "view == kozani.connections",
+          "when": "view == kozani.connections && workspaceFolderCount > 0",
           "group": "navigation@1"
         },
         {
           "command": "kozani-ext.addConnection",
-          "when": "view == kozani.connections",
+          "when": "view == kozani.connections && workspaceFolderCount > 0",
           "group": "navigation@2"
         },
         {
           "command": "kozani-ext.refreshConnections",
-          "when": "view == kozani.connections",
+          "when": "view == kozani.connections && workspaceFolderCount > 0",
           "group": "navigation@3"
         }
       ],
