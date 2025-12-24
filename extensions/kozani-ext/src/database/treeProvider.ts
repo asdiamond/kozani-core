@@ -28,7 +28,7 @@ export class ConnectionTreeItem extends DatabaseTreeItem {
 	}
 
 	async getChildren(connectionManager: ConnectionManager): Promise<DatabaseTreeItem[]> {
-		const fullConn = await connectionManager.getFullConnection(this.connection.id);
+		const fullConn = await connectionManager.getFullConnection(this.connection.name);
 		if (!fullConn || !fullConn.credentials) {
 			vscode.window.showErrorMessage(`No credentials found for connection "${this.connection.name}"`);
 			return [];

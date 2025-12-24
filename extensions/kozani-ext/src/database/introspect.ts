@@ -69,7 +69,7 @@ export async function introspectDatabase(conn: FullConnection, database?: string
 		host: conn.host,
 		port: conn.port,
 		database: database || conn.default_database || 'postgres',
-		user: conn.credentials.username,
+		user: conn.user,
 		password: conn.credentials.password,
 		ssl: conn.credentials.ssl ? { rejectUnauthorized: false } : undefined,
 		connectionTimeoutMillis: 10000,

@@ -22,7 +22,7 @@ export interface SqlCell {
 }
 
 export interface ChatContext {
-	connection_id?: string;
+	connection_name?: string;
 	sql_cells: SqlCell[];
 }
 
@@ -87,7 +87,7 @@ export async function streamFromBackend(
 	const body = {
 		messages: [message],
 		conversation_id: conversationId,
-		connection_id: context?.connection_id,
+		connection_name: context?.connection_name,
 		sql_cells: context?.sql_cells || []
 	};
 	debug('API request body:', JSON.stringify(body, null, 2));

@@ -21,6 +21,7 @@ export interface ColumnInfo {
 
 /**
  * Creates a pg Client config from a FullConnection (metadata + credentials).
+ * Username is stored in the connection YAML, password in SecretStorage.
  */
 function buildClientConfig(conn: FullConnection, database?: string): ClientConfig {
 	if (!conn.credentials) {
@@ -31,7 +32,7 @@ function buildClientConfig(conn: FullConnection, database?: string): ClientConfi
 		host: conn.host,
 		port: conn.port,
 		database: database || conn.default_database || 'postgres',
-		user: conn.credentials.username,
+		user: conn.user,
 		password: conn.credentials.password,
 		ssl: conn.credentials.ssl ? { rejectUnauthorized: false } : undefined,
 		connectionTimeoutMillis: 10000,

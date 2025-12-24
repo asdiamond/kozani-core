@@ -94,15 +94,15 @@ export class KozaniNotebookController {
 	}
 
 	private async getConnection(notebook: vscode.NotebookDocument): Promise<FullConnection | undefined> {
-		const connectionId = notebook.metadata?.connectionId;
+		const connectionName = notebook.metadata?.connectionName;
 
-		if (connectionId) {
+		if (connectionName) {
 			// Fetch full connection with credentials from secret storage
-			const fullConn = await this.connectionManager.getFullConnection(connectionId);
+			const fullConn = await this.connectionManager.getFullConnection(connectionName);
 			if (fullConn?.credentials) {
 				return fullConn;
 			}
-			// Connection ID was set but credentials not found - fall through to picker
+			// Connection name was set but credentials not found - fall through to picker
 		}
 
 		// No connection set or credentials missing - prompt user to select one
@@ -127,7 +127,7 @@ export class KozaniNotebookController {
 		}
 
 		// Fetch full connection with credentials
-		const fullConn = await this.connectionManager.getFullConnection(picked.connection.id);
+		const fullConn = await this.connectionManager.getFullConnection(picked.connection.name);
 		if (!fullConn?.credentials) {
 			vscode.window.showErrorMessage(`No credentials found for connection "${picked.connection.name}". Try removing and re-adding the connection.`);
 			return undefined;

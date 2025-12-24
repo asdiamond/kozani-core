@@ -15,8 +15,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerLanguageModelProvider(context);
 	registerChatParticipant(context);
 
-	// Initialize connection manager with local storage
-	const connectionManager = new ConnectionManager(context.globalState, context.secrets);
+	// Initialize connection manager with local-first storage (.kozani/ folder)
+	const connectionManager = new ConnectionManager(context.secrets);
 	const treeProvider = new ConnectionTreeProvider(connectionManager);
 
 	const treeView = vscode.window.createTreeView('kozani.connections', {
@@ -62,7 +62,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		);
 
 		if (confirm === 'Remove') {
-			const success = await connectionManager.removeConnection(item.connection.id);
+			const success = await connectionManager.removeConnection(item.connection.name);
 			if (success) {
 				vscode.window.showInformationMessage(`Connection "${item.connection.name}" removed`);
 			}
@@ -76,15 +76,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// New Query command - opens a blank .kozani notebook (in-memory, untitled)
 	const newQueryCommand = vscode.commands.registerCommand('kozani-ext.newQuery', async (item: ConnectionTreeItem) => {
-		const connectionId = item?.connection?.id;
+		const connectionName = item?.connection?.name;
 
 		// Create notebook with a starter cell (non-empty to help VSCode initialize text models)
 		const notebookData = new vscode.NotebookData([
 			new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '-- Write your SQL query here\n', 'sql')
 		]);
 
-		if (connectionId) {
-			notebookData.metadata = { connectionId };
+		if (connectionName) {
+			notebookData.metadata = { connectionName };
 		}
 
 		const doc = await vscode.workspace.openNotebookDocument('kozani-notebook', notebookData);
@@ -159,7 +159,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		]);
 
 		notebookData.metadata = {
-			connectionId: item.conn.id,
+			connectionName: item.conn.name,
 			database: item.database
 		};
 

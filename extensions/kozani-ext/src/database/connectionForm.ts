@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ConnectionManager } from './connectionManager';
+import { syncConnectionSchemaByName } from './schemaSync';
 
 /**
  * Prompts the user to enter connection details using native VS Code quick inputs.
@@ -104,20 +105,34 @@ export async function showConnectionForm(connectionManager: ConnectionManager): 
 	}
 
 	// Create the connection
-	const connection = await connectionManager.addConnection(
-		{
-			name: name.trim(),
-			host: host.trim(),
-			port,
-			default_database: database.trim() || undefined
-		},
-		{
-			username: username.trim(),
-			password: password
-		}
-	);
+	try {
+		const connection = await connectionManager.addConnection(
+			{
+				name: name.trim(),
+				host: host.trim(),
+				port,
+				default_database: database.trim() || undefined,
+				user: username.trim()
+			},
+			password
+		);
 
-	if (connection) {
-		vscode.window.showInformationMessage(`Connection "${name}" created`);
+		if (connection) {
+			vscode.window.showInformationMessage(`Connection "${name}" created`);
+
+			// Sync schema in background
+			vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Window,
+					title: `Syncing schema for ${name}...`,
+				},
+				async () => {
+					await syncConnectionSchemaByName(connectionManager, connection.name);
+				}
+			);
+		}
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		vscode.window.showErrorMessage(`Failed to create connection: ${message}`);
 	}
 }

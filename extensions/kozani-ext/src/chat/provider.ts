@@ -304,7 +304,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 		response.progress('Thinking...');
 
 		const activeNotebook = vscode.window.activeNotebookEditor?.notebook;
-		const connectionId = activeNotebook?.metadata?.connectionId as string | undefined;
+		const connectionName = activeNotebook?.metadata?.connectionName as string | undefined;
 
 		// Get referenced cells (explicit @mentions) and recent cells (background context)
 		const referencedCells = await extractReferencedCells(request.references, activeNotebook);
@@ -315,10 +315,10 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
 		const uniqueRecentCells = recentCells.filter(c => !seenSql.has(c.sql));
 		const sqlCells = [...uniqueRecentCells, ...referencedCells];
 
-		debug('Context:', { connectionId, referencedCells: referencedCells.length, recentCells: uniqueRecentCells.length });
+		debug('Context:', { connectionName, referencedCells: referencedCells.length, recentCells: uniqueRecentCells.length });
 
 		const apiContext: ChatContext = {
-			connection_id: connectionId,
+			connection_name: connectionName,
 			sql_cells: sqlCells
 		};
 

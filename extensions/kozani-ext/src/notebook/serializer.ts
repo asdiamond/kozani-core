@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
  * File format is JSON with cells and their outputs (like Jupyter .ipynb):
  * {
  *   "version": 1,
- *   "connectionId": "uuid-of-connection",
+ *   "connectionName": "prod-analytics",
  *   "database": "database-name",
  *   "cells": [
  *     {
@@ -36,7 +36,7 @@ interface SerializedCell {
 
 interface NotebookFile {
 	version: number;
-	connectionId?: string;
+	connectionName?: string;
 	database?: string;
 	cells: SerializedCell[];
 }
@@ -83,7 +83,7 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 		const notebookData = new vscode.NotebookData(cells);
 
 		notebookData.metadata = {
-			connectionId: data.connectionId,
+			connectionName: data.connectionName,
 			database: data.database,
 		};
 
@@ -120,7 +120,7 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 
 		const file: NotebookFile = {
 			version: 1,
-			connectionId: data.metadata?.connectionId,
+			connectionName: data.metadata?.connectionName,
 			database: data.metadata?.database,
 			cells,
 		};
