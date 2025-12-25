@@ -10,7 +10,7 @@ export class KozaniNotebookController {
 	readonly controllerId = 'kozani-sql-controller';
 	readonly notebookType = 'kozani-notebook';
 	readonly label = 'Kozani SQL';
-	readonly supportedLanguages = ['sql'];
+	readonly supportedLanguages = ['pgsql'];
 
 	private readonly controller: vscode.NotebookController;
 	private executionOrder = 0;

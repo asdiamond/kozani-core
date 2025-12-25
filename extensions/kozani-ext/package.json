@@ -36,9 +36,16 @@
     ],
     "languages": [
       {
-        "id": "sql",
-        "aliases": ["SQL", "sql"],
-        "extensions": [".sql"]
+        "id": "pgsql",
+        "aliases": ["PostgreSQL", "Postgres", "pgsql"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pgsql",
+        "scopeName": "source.pgsql",
+        "path": "./syntaxes/pgsql.tmLanguage.json"
       }
     ],
     "languageModelChatProviders": [

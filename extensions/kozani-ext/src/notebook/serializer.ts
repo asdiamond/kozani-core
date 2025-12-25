@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
  *   "database": "database-name",
  *   "cells": [
  *     {
- *       "kind": "sql",
+ *       "kind": "pgsql",
  *       "value": "SELECT * FROM users",
  *       "outputs": [
  *         { "mime": "text/html", "data": "<table>..." },
@@ -29,7 +29,7 @@ interface SerializedOutput {
 }
 
 interface SerializedCell {
-	kind: 'sql' | 'markdown';
+	kind: 'pgsql' | 'markdown';
 	value: string;
 	outputs?: SerializedOutput[];
 }
@@ -52,10 +52,10 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 		try {
 			data = text.trim() ? JSON.parse(text) : { version: 1, cells: [] };
 		} catch {
-			// If parsing fails, treat as a single SQL cell
+			// If parsing fails, treat as a single pgsql cell
 			data = {
 				version: 1,
-				cells: text.trim() ? [{ kind: 'sql', value: text }] : []
+				cells: text.trim() ? [{ kind: 'pgsql', value: text }] : []
 			};
 		}
 
@@ -63,7 +63,7 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 			const kind = cell.kind === 'markdown'
 				? vscode.NotebookCellKind.Markup
 				: vscode.NotebookCellKind.Code;
-			const language = cell.kind === 'markdown' ? 'markdown' : 'sql';
+			const language = cell.kind === 'markdown' ? 'markdown' : 'pgsql';
 
 			const cellData = new vscode.NotebookCellData(kind, cell.value, language);
 
@@ -96,7 +96,7 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 	): Promise<Uint8Array> {
 		const cells: SerializedCell[] = data.cells.map(cell => {
 			const serializedCell: SerializedCell = {
-				kind: cell.kind === vscode.NotebookCellKind.Markup ? 'markdown' : 'sql',
+				kind: cell.kind === vscode.NotebookCellKind.Markup ? 'markdown' : 'pgsql',
 				value: cell.value,
 			};
 

@@ -133,7 +133,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			version: 1,
 			cells: [
 				{
-					kind: 'sql',
+					kind: 'pgsql',
 					value: '-- Write your SQL query here\n'
 				}
 			]

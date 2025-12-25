@@ -1,0 +1,10 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "PostgreSQL",
+	"scopeName": "source.pgsql",
+	"patterns": [
+		{
+			"include": "source.sql"
+		}
+	]
+}

@@ -140,7 +140,7 @@ function handleToolCall(
 		const cellData = new vscode.NotebookCellData(
 			vscode.NotebookCellKind.Code,
 			sql,
-			'sql'
+			'pgsql'
 		);
 
 		// Use response.notebookEdit for diff review UI (Keep/Undo buttons)
