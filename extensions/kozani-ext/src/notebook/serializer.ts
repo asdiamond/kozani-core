@@ -68,13 +68,14 @@ export class KozaniNotebookSerializer implements vscode.NotebookSerializer {
 			const cellData = new vscode.NotebookCellData(kind, cell.value, language);
 
 			// Restore outputs if present
+			// Group all items into a single NotebookCellOutput - this matches how we create them
+			// during execution. VSCode will pick the first renderable item (HTML) and skip
+			// the custom JSON mimetype that has no renderer.
 			if (cell.outputs && cell.outputs.length > 0) {
-				cellData.outputs = cell.outputs.map(output => {
-					const item = output.mime.startsWith('text/')
-						? vscode.NotebookCellOutputItem.text(output.data, output.mime)
-						: vscode.NotebookCellOutputItem.text(output.data, output.mime); // For now, treat all as text
-					return new vscode.NotebookCellOutput([item]);
-				});
+				const items = cell.outputs.map(output =>
+					vscode.NotebookCellOutputItem.text(output.data, output.mime)
+				);
+				cellData.outputs = [new vscode.NotebookCellOutput(items)];
 			}
 
 			return cellData;
