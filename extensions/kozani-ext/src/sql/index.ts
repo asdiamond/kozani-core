@@ -3,8 +3,9 @@
  *
  * Features:
  * - Hover: Shows table/column info from .kozani/ schema files
- * - Completions: Table/column/keyword suggestions
+ * - Completions: Table/column/keyword suggestions (tree-sitter based)
  * - Go to Definition: Jump to schema YAML definitions
+ * - Tree-sitter based parsing for accurate context detection
  * - (Future) Diagnostics: Syntax and semantic errors
  * - (Future) Code Actions: Quick fixes
  */
@@ -19,6 +20,12 @@ import { debug } from '../debug';
 // Export types for external use
 export * from './types';
 export { SqlLanguageService } from './SqlLanguageService';
+
+// Export parser module
+export * from './parser';
+
+// Export completions module
+export * from './completions';
 
 /**
  * Register all SQL language features for Kozani notebooks.

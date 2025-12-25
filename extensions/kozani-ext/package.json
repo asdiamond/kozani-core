@@ -200,11 +200,13 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "compile": "tsc -p ./ && npm run copy-wasm",
+    "watch": "tsc -watch -p ./",
+    "copy-wasm": "mkdir -p out/sql/wasm && cp src/sql/wasm/*.wasm out/sql/wasm/"
   },
   "dependencies": {
     "pg": "^8.13.1",
+    "web-tree-sitter": "^0.22.6",
     "yaml": "^2.7.0"
   },
   "devDependencies": {

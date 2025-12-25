@@ -95,6 +95,7 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!test/automation/out/**',
 	'!test/monaco/out/**',
 	'!test/smoke/out/**',
+	'!extensions/kozani-ext/src/sql/grammar/**', // tree-sitter grammar files (generated C and config)
 	'!extensions/terminal-suggest/src/shell/zshBuiltinsCache.ts',
 	'!extensions/terminal-suggest/src/shell/fishBuiltinsCache.ts',
 	'!extensions/terminal-suggest/src/completions/upstream/**',

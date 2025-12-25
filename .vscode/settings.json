@@ -34,6 +34,11 @@
 		"editor.defaultFormatter": "rust-lang.rust-analyzer",
 		"editor.formatOnSave": true,
 	},
+	"[c]": {
+		"editor.insertSpaces": false,
+		"editor.tabSize": 4,
+		"editor.formatOnSave": true
+	},
 	"[github-issues]": {
 		"editor.wordWrap": "on"
 	},
