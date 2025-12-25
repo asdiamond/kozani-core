@@ -3,7 +3,8 @@
  *
  * Features:
  * - Hover: Shows table/column info from .kozani/ schema files
- * - (Future) Completions: Table/column suggestions
+ * - Completions: Table/column/keyword suggestions
+ * - Go to Definition: Jump to schema YAML definitions
  * - (Future) Diagnostics: Syntax and semantic errors
  * - (Future) Code Actions: Quick fixes
  */
@@ -12,6 +13,7 @@ import * as vscode from 'vscode';
 import { SqlLanguageService } from './SqlLanguageService';
 import { SqlHoverProvider } from './providers/HoverProvider';
 import { SqlDefinitionProvider } from './providers/DefinitionProvider';
+import { SqlCompletionProvider } from './providers/CompletionProvider';
 import { debug } from '../debug';
 
 // Export types for external use
@@ -51,14 +53,22 @@ export function registerSqlLanguageFeatures(
 		new SqlDefinitionProvider(service)
 	);
 
+	// Register completion provider
+	const completionProvider = vscode.languages.registerCompletionItemProvider(
+		selector,
+		new SqlCompletionProvider(service),
+		'.', // Trigger on dot for table.column completions
+	);
+
 	// Add to subscriptions for cleanup
 	context.subscriptions.push(hoverProvider);
 	context.subscriptions.push(definitionProvider);
+	context.subscriptions.push(completionProvider);
 	context.subscriptions.push({
 		dispose: () => service.dispose(),
 	});
 
-	debug('SQL Language Service: Registered hover and definition providers for pgsql/vscode-notebook-cell');
+	debug('SQL Language Service: Registered hover, definition, and completion providers for pgsql/vscode-notebook-cell');
 
 	return service;
 }

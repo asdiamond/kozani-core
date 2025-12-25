@@ -23,6 +23,65 @@ export interface HoverResult {
 	range?: vscode.Range;
 }
 
+/**
+ * SQL keywords for completions.
+ */
+const SQL_KEYWORDS = [
+	'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN', 'LIKE', 'ILIKE',
+	'IS', 'NULL', 'TRUE', 'FALSE', 'AS', 'ON', 'JOIN', 'LEFT', 'RIGHT', 'INNER',
+	'OUTER', 'FULL', 'CROSS', 'NATURAL', 'USING', 'GROUP', 'BY', 'HAVING', 'ORDER',
+	'ASC', 'DESC', 'NULLS', 'FIRST', 'LAST', 'LIMIT', 'OFFSET', 'DISTINCT',
+	'ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'WITH', 'RECURSIVE', 'CASE', 'WHEN',
+	'THEN', 'ELSE', 'END', 'CAST', 'COALESCE', 'NULLIF', 'GREATEST', 'LEAST',
+	'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'RETURNING',
+	'CREATE', 'TABLE', 'VIEW', 'INDEX', 'DROP', 'ALTER', 'ADD', 'COLUMN',
+	'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'UNIQUE', 'CHECK', 'DEFAULT',
+	'CONSTRAINT', 'CASCADE', 'RESTRICT', 'EXISTS', 'ANY', 'SOME',
+	'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'ARRAY_AGG', 'STRING_AGG', 'JSON_AGG',
+	'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'OVER', 'PARTITION', 'FILTER',
+];
+
+/**
+ * Common PostgreSQL functions for completions.
+ */
+const PG_FUNCTIONS = [
+	{ name: 'COUNT', signature: 'COUNT(expression)' },
+	{ name: 'SUM', signature: 'SUM(expression)' },
+	{ name: 'AVG', signature: 'AVG(expression)' },
+	{ name: 'MIN', signature: 'MIN(expression)' },
+	{ name: 'MAX', signature: 'MAX(expression)' },
+	{ name: 'COALESCE', signature: 'COALESCE(value1, value2, ...)' },
+	{ name: 'NULLIF', signature: 'NULLIF(value1, value2)' },
+	{ name: 'CAST', signature: 'CAST(expression AS type)' },
+	{ name: 'NOW', signature: 'NOW()' },
+	{ name: 'CURRENT_DATE', signature: 'CURRENT_DATE' },
+	{ name: 'CURRENT_TIMESTAMP', signature: 'CURRENT_TIMESTAMP' },
+	{ name: 'DATE_TRUNC', signature: "DATE_TRUNC('precision', timestamp)" },
+	{ name: 'EXTRACT', signature: 'EXTRACT(field FROM timestamp)' },
+	{ name: 'TO_CHAR', signature: "TO_CHAR(timestamp, 'format')" },
+	{ name: 'TO_DATE', signature: "TO_DATE(text, 'format')" },
+	{ name: 'LENGTH', signature: 'LENGTH(string)' },
+	{ name: 'LOWER', signature: 'LOWER(string)' },
+	{ name: 'UPPER', signature: 'UPPER(string)' },
+	{ name: 'TRIM', signature: 'TRIM(string)' },
+	{ name: 'CONCAT', signature: 'CONCAT(str1, str2, ...)' },
+	{ name: 'SUBSTRING', signature: 'SUBSTRING(string FROM start FOR length)' },
+	{ name: 'REPLACE', signature: 'REPLACE(string, from, to)' },
+	{ name: 'SPLIT_PART', signature: "SPLIT_PART(string, delimiter, position)" },
+	{ name: 'ARRAY_AGG', signature: 'ARRAY_AGG(expression)' },
+	{ name: 'STRING_AGG', signature: "STRING_AGG(expression, delimiter)" },
+	{ name: 'JSON_AGG', signature: 'JSON_AGG(expression)' },
+	{ name: 'JSONB_AGG', signature: 'JSONB_AGG(expression)' },
+	{ name: 'ROW_NUMBER', signature: 'ROW_NUMBER() OVER (...)' },
+	{ name: 'RANK', signature: 'RANK() OVER (...)' },
+	{ name: 'DENSE_RANK', signature: 'DENSE_RANK() OVER (...)' },
+	{ name: 'LAG', signature: 'LAG(expression, offset, default) OVER (...)' },
+	{ name: 'LEAD', signature: 'LEAD(expression, offset, default) OVER (...)' },
+	{ name: 'FIRST_VALUE', signature: 'FIRST_VALUE(expression) OVER (...)' },
+	{ name: 'LAST_VALUE', signature: 'LAST_VALUE(expression) OVER (...)' },
+	{ name: 'GENERATE_SERIES', signature: 'GENERATE_SERIES(start, stop, step)' },
+];
+
 export class SqlLanguageService {
 	private schemaLoader: SchemaLoader;
 
@@ -177,6 +236,319 @@ export class SqlLanguageService {
 
 		debug(`SqlLanguageService.getDefinition: Returning location ${location.uri.fsPath}:${location.range.start.line}`);
 		return location;
+	}
+
+	/**
+	 * Completion context types for context-aware suggestions.
+	 */
+	private getCompletionContext(textBeforeCursor: string): 'from' | 'join' | 'columns' | 'general' {
+
+		// Check for FROM/JOIN context (suggest tables)
+		if (/\b(FROM|JOIN)\s+[\w.]*$/i.test(textBeforeCursor)) {
+			return 'from';
+		}
+
+		// Check for column context (SELECT list, WHERE, ORDER BY, GROUP BY, HAVING, ON, SET, etc.)
+		// These are places where column names make sense
+		if (/\bSELECT\s+(DISTINCT\s+)?([\w.,\s*()]+,\s*)?[\w]*$/i.test(textBeforeCursor)) {
+			return 'columns';
+		}
+		if (/\b(WHERE|AND|OR|ON|HAVING)\s+[\w]*$/i.test(textBeforeCursor)) {
+			return 'columns';
+		}
+		if (/\b(ORDER\s+BY|GROUP\s+BY)\s+([\w.,\s]+,\s*)?[\w]*$/i.test(textBeforeCursor)) {
+			return 'columns';
+		}
+		if (/\bSET\s+([\w]+=[\w'",\s]+,\s*)?[\w]*$/i.test(textBeforeCursor)) {
+			return 'columns';
+		}
+		// After comparison operators or IN (
+		if (/[=<>!]+\s*[\w]*$/i.test(textBeforeCursor)) {
+			return 'columns';
+		}
+
+		return 'general';
+	}
+
+	/**
+	 * Extract table names from FROM and JOIN clauses in the SQL.
+	 * Returns both the table name and any alias.
+	 */
+	private extractTablesFromSql(sql: string): Array<{ name: string; alias?: string }> {
+		const tables: Array<{ name: string; alias?: string }> = [];
+
+		// Match: FROM table_name [AS] [alias], table2 [AS] [alias2]
+		// Match: JOIN table_name [AS] [alias]
+		const fromJoinRegex = /\b(?:FROM|JOIN)\s+([\w.]+)(?:\s+(?:AS\s+)?(\w+))?/gi;
+
+		let match;
+		while ((match = fromJoinRegex.exec(sql)) !== null) {
+			const tableName = match[1];
+			const alias = match[2];
+
+			// Skip if the "table" is actually a keyword (like JOIN types)
+			if (/^(INNER|LEFT|RIGHT|FULL|CROSS|OUTER|NATURAL|ON|WHERE)$/i.test(tableName)) {
+				continue;
+			}
+
+			tables.push({ name: tableName, alias });
+		}
+
+		debug(`SqlLanguageService.extractTablesFromSql: Found tables: ${JSON.stringify(tables)}`);
+		return tables;
+	}
+
+	/**
+	 * Get completion items for a position in the document.
+	 */
+	async getCompletions(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.CompletionItem[]> {
+		debug('SqlLanguageService.getCompletions: Starting');
+
+		const schema = await this.getSchemaForDocument(document);
+		const items: vscode.CompletionItem[] = [];
+
+		// Get text before cursor (full document up to cursor position for context)
+		const offsetAtCursor = document.offsetAt(position);
+		const textBeforeCursor = document.getText().substring(0, offsetAtCursor);
+		const lineText = document.lineAt(position.line).text;
+		const lineTextBeforeCursor = lineText.substring(0, position.character);
+
+		// Check if we're completing after a dot (table.column or schema.table)
+		const dotMatch = lineTextBeforeCursor.match(/(\w+)\.(\w*)$/);
+		if (dotMatch) {
+			const [, prefix, partial] = dotMatch;
+			debug(`SqlLanguageService.getCompletions: Dot context - prefix="${prefix}", partial="${partial}"`);
+
+			if (schema) {
+				// Try prefix as table name -> suggest columns
+				const tables = schema.tablesByName.get(prefix);
+				if (tables && tables.length > 0) {
+					for (const table of tables) {
+						for (const col of table.columns) {
+							if (!partial || col.name.toLowerCase().startsWith(partial.toLowerCase())) {
+								items.push(this.buildColumnCompletion(col, table));
+							}
+						}
+					}
+				}
+
+				// Also check if prefix is an alias from the query
+				const tablesInQuery = this.extractTablesFromSql(textBeforeCursor);
+				for (const tableRef of tablesInQuery) {
+					if (tableRef.alias?.toLowerCase() === prefix.toLowerCase()) {
+						// Find the actual table and suggest its columns
+						const actualTables = schema.tablesByName.get(tableRef.name) ||
+							(schema.tablesByFullName.has(tableRef.name) ? [schema.tablesByFullName.get(tableRef.name)!] : []);
+						for (const table of actualTables) {
+							for (const col of table.columns) {
+								if (!partial || col.name.toLowerCase().startsWith(partial.toLowerCase())) {
+									items.push(this.buildColumnCompletion(col, table));
+								}
+							}
+						}
+					}
+				}
+
+				// Try prefix as schema name -> suggest tables in that schema
+				for (const table of schema.tablesByFullName.values()) {
+					if (table.schema === prefix) {
+						if (!partial || table.name.toLowerCase().startsWith(partial.toLowerCase())) {
+							items.push(this.buildTableCompletion(table, false)); // Don't include schema prefix
+						}
+					}
+				}
+			}
+
+			// If we found column/table completions after dot, return just those
+			if (items.length > 0) {
+				debug(`SqlLanguageService.getCompletions: Returning ${items.length} dot-context items`);
+				return items;
+			}
+		}
+
+		// Determine completion context
+		const context = this.getCompletionContext(textBeforeCursor);
+		debug(`SqlLanguageService.getCompletions: Context="${context}"`);
+
+		// Get the current word being typed
+		const wordMatch = lineTextBeforeCursor.match(/(\w+)$/);
+		const currentWord = wordMatch ? wordMatch[1].toLowerCase() : '';
+		debug(`SqlLanguageService.getCompletions: Current word="${currentWord}"`);
+
+		// For FROM/JOIN context, prioritize tables
+		if (context === 'from') {
+			if (schema) {
+				for (const table of schema.tablesByFullName.values()) {
+					if (!currentWord || table.name.toLowerCase().startsWith(currentWord) ||
+						table.fullName.toLowerCase().startsWith(currentWord)) {
+						items.push(this.buildTableCompletion(table, true));
+					}
+				}
+			}
+			debug(`SqlLanguageService.getCompletions: FROM context - returning ${items.length} tables`);
+			return items;
+		}
+
+		// For column contexts (WHERE, SELECT, ORDER BY, etc.), suggest columns from in-scope tables
+		if (context === 'columns' && schema) {
+			const tablesInQuery = this.extractTablesFromSql(textBeforeCursor);
+			const addedColumns = new Set<string>(); // Track to avoid duplicates
+
+			if (tablesInQuery.length > 0) {
+				// Suggest columns from tables that are in the query
+				for (const tableRef of tablesInQuery) {
+					// Try to find the table by name or full name
+					let matchedTables: TableInfo[] = [];
+
+					const byShortName = schema.tablesByName.get(tableRef.name);
+					if (byShortName) {
+						matchedTables = byShortName;
+					} else {
+						const byFullName = schema.tablesByFullName.get(tableRef.name);
+						if (byFullName) {
+							matchedTables = [byFullName];
+						}
+					}
+
+					for (const table of matchedTables) {
+						for (const col of table.columns) {
+							if (!currentWord || col.name.toLowerCase().startsWith(currentWord)) {
+								const key = `${table.fullName}.${col.name}`;
+								if (!addedColumns.has(key)) {
+									addedColumns.add(key);
+									items.push(this.buildColumnCompletion(col, table));
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// No tables found in query yet - suggest all columns (less ideal but still useful)
+				for (const columns of schema.columnsByName.values()) {
+					for (const col of columns) {
+						if (!currentWord || col.name.toLowerCase().startsWith(currentWord)) {
+							const key = `${col.tableName}.${col.name}`;
+							if (!addedColumns.has(key)) {
+								addedColumns.add(key);
+								const table = schema.tablesByFullName.get(col.tableName);
+								if (table) {
+									items.push(this.buildColumnCompletion(col, table));
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Also add functions for column contexts (common in SELECT, WHERE)
+			for (const func of PG_FUNCTIONS) {
+				if (!currentWord || func.name.toLowerCase().startsWith(currentWord)) {
+					items.push(this.buildFunctionCompletion(func));
+				}
+			}
+
+			debug(`SqlLanguageService.getCompletions: Column context - returning ${items.length} items`);
+			return items;
+		}
+
+		// General context - show everything
+		if (schema) {
+			for (const table of schema.tablesByFullName.values()) {
+				if (!currentWord || table.name.toLowerCase().startsWith(currentWord) ||
+					table.fullName.toLowerCase().startsWith(currentWord)) {
+					items.push(this.buildTableCompletion(table, true));
+				}
+			}
+		}
+
+		// Add SQL keyword completions
+		for (const keyword of SQL_KEYWORDS) {
+			if (!currentWord || keyword.toLowerCase().startsWith(currentWord)) {
+				items.push(this.buildKeywordCompletion(keyword));
+			}
+		}
+
+		// Add function completions
+		for (const func of PG_FUNCTIONS) {
+			if (!currentWord || func.name.toLowerCase().startsWith(currentWord)) {
+				items.push(this.buildFunctionCompletion(func));
+			}
+		}
+
+		debug(`SqlLanguageService.getCompletions: Returning ${items.length} items`);
+		return items;
+	}
+
+	/**
+	 * Build a completion item for a table.
+	 */
+	private buildTableCompletion(table: TableInfo, includeSchema: boolean): vscode.CompletionItem {
+		const label = includeSchema ? table.fullName : table.name;
+		const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Class);
+
+		// allow-any-unicode-next-line
+		const icon = table.isView ? '👁️' : '📋';
+		item.detail = `${icon} ${table.isView ? 'View' : 'Table'} (${table.columns.length} columns)`;
+
+		if (table.description) {
+			item.documentation = new vscode.MarkdownString(table.description);
+		}
+
+		// Sort tables before keywords
+		item.sortText = `0_${label}`;
+
+		return item;
+	}
+
+	/**
+	 * Build a completion item for a column.
+	 */
+	private buildColumnCompletion(column: ColumnInfo, table: TableInfo): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(column.name, vscode.CompletionItemKind.Field);
+
+		// allow-any-unicode-next-line
+		const pk = column.primaryKey ? ' 🔑' : '';
+		item.detail = `${column.type}${pk}`;
+
+		const doc = new vscode.MarkdownString();
+		doc.appendMarkdown(`**Column** in \`${table.fullName}\`\n\n`);
+		doc.appendMarkdown(`**Type:** \`${column.type}\`  \n`);
+		doc.appendMarkdown(`**Nullable:** ${column.nullable ? 'Yes' : 'No'}`);
+		if (column.description) {
+			doc.appendMarkdown(`\n\n${column.description}`);
+		}
+		item.documentation = doc;
+
+		// Columns sorted first when in dot-context
+		item.sortText = `0_${column.name}`;
+
+		return item;
+	}
+
+	/**
+	 * Build a completion item for an SQL keyword.
+	 */
+	private buildKeywordCompletion(keyword: string): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
+		item.detail = 'SQL keyword';
+
+		// Sort keywords after tables
+		item.sortText = `1_${keyword}`;
+
+		return item;
+	}
+
+	/**
+	 * Build a completion item for a PostgreSQL function.
+	 */
+	private buildFunctionCompletion(func: { name: string; signature: string }): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(func.name, vscode.CompletionItemKind.Function);
+		item.detail = func.signature;
+
+		// Sort functions with keywords
+		item.sortText = `1_${func.name}`;
+
+		return item;
 	}
 
 	/**
