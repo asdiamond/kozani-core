@@ -28,9 +28,8 @@
     "notebooks": [
       {
         "type": "kozani-notebook",
-        "displayName": "Kozani SQL Notebook",
+        "displayName": "SQL Notebook",
         "selector": [
-          { "filenamePattern": "*.kozani" },
           { "filenamePattern": "*.sqlbook" }
         ]
       }

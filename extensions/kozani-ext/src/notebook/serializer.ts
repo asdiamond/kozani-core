@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 /**
- * Notebook serializer for .kozani and .sqlbook files.
+ * Notebook serializer for .sqlbook files.
  *
  * File format is JSON with cells and their outputs (like Jupyter .ipynb):
  * {

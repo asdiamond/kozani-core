@@ -74,7 +74,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		syncAllSchemasInBackground(connectionManager);
 	});
 
-	// New Query command - opens a blank .kozani notebook (in-memory, untitled)
+	// New Query command - opens a blank .sqlbook notebook (in-memory, untitled)
 	const newQueryCommand = vscode.commands.registerCommand('kozani-ext.newQuery', async (item: ConnectionTreeItem) => {
 		const connectionName = item?.connection?.name;
 
@@ -91,7 +91,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		await vscode.window.showNotebookDocument(doc);
 	});
 
-	// New Notebook command - creates a .kozani file directly on disk (no OS dialog)
+	// New Notebook command - creates a .sqlbook file directly on disk (no OS dialog)
 	const newNotebookCommand = vscode.commands.registerCommand('kozani-ext.newNotebook', async (folderUri?: vscode.Uri) => {
 		// Determine the target folder
 		let targetFolder: vscode.Uri;
@@ -110,7 +110,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Generate a unique filename
 		const baseName = 'query';
-		const extension = '.kozani';
+		const extension = '.sqlbook';
 		let counter = 1;
 		let fileUri: vscode.Uri;
 

@@ -127,7 +127,7 @@ function handleToolCall(
 
 		const notebook = vscode.window.activeNotebookEditor?.notebook;
 		if (!notebook) {
-			response.markdown('\n\n⚠️ No notebook is open. Please open a `.kozani` or `.sqlbook` file first.\n');
+			response.markdown('\n\n⚠️ No notebook is open. Please open a `.sqlbook` file first.\n');
 			return;
 		}
 
