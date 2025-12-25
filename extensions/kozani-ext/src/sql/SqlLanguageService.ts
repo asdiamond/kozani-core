@@ -7,7 +7,9 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import { SchemaLoader } from './schema/SchemaLoader';
+import { getSchemaYamlPath } from '../database/kozaniFolder';
 import type { ConnectionSchema, TableInfo, ColumnInfo } from './types';
 import { debug } from '../debug';
 
@@ -115,6 +117,251 @@ export class SqlLanguageService {
 
 		debug('SqlLanguageService.getHover: No match found in schema');
 		return undefined;
+	}
+
+	/**
+	 * Get definition location for a table or column name.
+	 * Jumps to the definition in the schema YAML file.
+	 */
+	async getDefinition(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Location | undefined> {
+		debug('SqlLanguageService.getDefinition: Starting');
+
+		const connectionName = this.getConnectionForDocument(document);
+		if (!connectionName) {
+			debug('SqlLanguageService.getDefinition: No connection for document');
+			return undefined;
+		}
+
+		const schema = await this.schemaLoader.getSchema(connectionName);
+		if (!schema) {
+			debug('SqlLanguageService.getDefinition: No schema available');
+			return undefined;
+		}
+
+		// Get the word at cursor
+		const wordRange = document.getWordRangeAtPosition(position, /[\w.]+/);
+		if (!wordRange) {
+			debug('SqlLanguageService.getDefinition: No word at position');
+			return undefined;
+		}
+
+		const word = document.getText(wordRange);
+		debug(`SqlLanguageService.getDefinition: Word is "${word}"`);
+
+		// Try to find as table.column first
+		const columnMatch = this.findColumnForWord(word, schema);
+		if (columnMatch) {
+			debug(`SqlLanguageService.getDefinition: Found column ${columnMatch.column.name} in table ${columnMatch.table.fullName}`);
+			const location = await this.findColumnLocationInYaml(connectionName, columnMatch.table, columnMatch.column.name);
+			if (location) {
+				debug(`SqlLanguageService.getDefinition: Returning column location`);
+				return location;
+			}
+		}
+
+		// Fall back to table lookup
+		const table = this.findTableForWord(word, schema);
+		if (!table) {
+			debug('SqlLanguageService.getDefinition: No table found for word');
+			return undefined;
+		}
+
+		debug(`SqlLanguageService.getDefinition: Found table ${table.fullName}`);
+
+		// Find the location in the YAML file
+		const location = await this.findTableLocationInYaml(connectionName, table);
+		if (!location) {
+			debug('SqlLanguageService.getDefinition: Could not find location in YAML');
+			return undefined;
+		}
+
+		debug(`SqlLanguageService.getDefinition: Returning location ${location.uri.fsPath}:${location.range.start.line}`);
+		return location;
+	}
+
+	/**
+	 * Find the table that matches a word (handles qualified and unqualified names).
+	 */
+	private findTableForWord(word: string, schema: ConnectionSchema): TableInfo | undefined {
+		// Check if it's a qualified name like "public.users" or "table.column"
+		if (word.includes('.')) {
+			const parts = word.split('.');
+
+			// Try as schema.table first
+			const asQualified = schema.tablesByFullName.get(word);
+			if (asQualified) {
+				return asQualified;
+			}
+
+			// Try first part as table name (e.g., "users.id" -> "users")
+			if (parts.length >= 1) {
+				const tables = schema.tablesByName.get(parts[0]);
+				if (tables && tables.length > 0) {
+					return tables[0]; // Return first match
+				}
+			}
+
+			// Try as schema.table (first two parts)
+			if (parts.length >= 2) {
+				const fullName = `${parts[0]}.${parts[1]}`;
+				const table = schema.tablesByFullName.get(fullName);
+				if (table) {
+					return table;
+				}
+			}
+		}
+
+		// Unqualified name - look up by short name
+		const tables = schema.tablesByName.get(word);
+		if (tables && tables.length > 0) {
+			return tables[0]; // Return first match
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Find a column for a word like "table.column" or "schema.table.column".
+	 * Returns the table and column if found.
+	 */
+	private findColumnForWord(word: string, schema: ConnectionSchema): { table: TableInfo; column: ColumnInfo } | undefined {
+		if (!word.includes('.')) {
+			// Unqualified column name - try to find in schema
+			const columns = schema.columnsByName.get(word);
+			if (columns && columns.length === 1) {
+				// Only return if unambiguous (single match)
+				const col = columns[0];
+				const table = schema.tablesByFullName.get(col.tableName);
+				if (table) {
+					return { table, column: col };
+				}
+			}
+			return undefined;
+		}
+
+		const parts = word.split('.');
+
+		// table.column format (e.g., "messages.id")
+		if (parts.length === 2) {
+			const [tablePart, columnPart] = parts;
+
+			// First check if it's schema.table (not table.column)
+			const asSchemaTable = schema.tablesByFullName.get(word);
+			if (asSchemaTable) {
+				// It's a table, not a column reference
+				return undefined;
+			}
+
+			// Try as table.column
+			const tables = schema.tablesByName.get(tablePart);
+			if (tables) {
+				for (const table of tables) {
+					const column = table.columns.find(c => c.name === columnPart);
+					if (column) {
+						return { table, column };
+					}
+				}
+			}
+		}
+
+		// schema.table.column format (e.g., "public.messages.id")
+		if (parts.length === 3) {
+			const [schemaName, tableName, columnName] = parts;
+			const fullTableName = `${schemaName}.${tableName}`;
+			const table = schema.tablesByFullName.get(fullTableName);
+			if (table) {
+				const column = table.columns.find(c => c.name === columnName);
+				if (column) {
+					return { table, column };
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Find the line number of a table in its schema YAML file.
+	 */
+	private async findTableLocationInYaml(connectionName: string, table: TableInfo): Promise<vscode.Location | undefined> {
+		const yamlPath = getSchemaYamlPath(connectionName, table.schema);
+		if (!yamlPath) {
+			debug('SqlLanguageService.findTableLocationInYaml: Could not get YAML path');
+			return undefined;
+		}
+
+		try {
+			const content = await fs.promises.readFile(yamlPath, 'utf8');
+			const lines = content.split('\n');
+
+			// Find the line with the table name (2-space indent for table keys under "tables:")
+			const tablePattern = new RegExp(`^  ${table.name}:`);
+			const lineIndex = lines.findIndex(line => tablePattern.test(line));
+
+			if (lineIndex === -1) {
+				debug(`SqlLanguageService.findTableLocationInYaml: Table "${table.name}" not found in ${yamlPath}`);
+				return undefined;
+			}
+
+			const uri = vscode.Uri.file(yamlPath);
+			const position = new vscode.Position(lineIndex, 2); // Start at the table name
+			return new vscode.Location(uri, position);
+		} catch (err) {
+			debug('SqlLanguageService.findTableLocationInYaml: Error reading file:', err);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Find the line number of a column within a table in its schema YAML file.
+	 */
+	private async findColumnLocationInYaml(connectionName: string, table: TableInfo, columnName: string): Promise<vscode.Location | undefined> {
+		const yamlPath = getSchemaYamlPath(connectionName, table.schema);
+		if (!yamlPath) {
+			debug('SqlLanguageService.findColumnLocationInYaml: Could not get YAML path');
+			return undefined;
+		}
+
+		try {
+			const content = await fs.promises.readFile(yamlPath, 'utf8');
+			const lines = content.split('\n');
+
+			// Find the table first
+			const tablePattern = new RegExp(`^  ${table.name}:`);
+			const tableLineIndex = lines.findIndex(line => tablePattern.test(line));
+
+			if (tableLineIndex === -1) {
+				debug(`SqlLanguageService.findColumnLocationInYaml: Table "${table.name}" not found`);
+				return undefined;
+			}
+
+			// Search for the column within this table's section
+			// Stop when we hit the next table (another 2-space indented key)
+			const columnPattern = new RegExp(`^\\s+- name: ${columnName}\\s*$`);
+			const nextTablePattern = /^  \w+:/;
+
+			for (let i = tableLineIndex + 1; i < lines.length; i++) {
+				const line = lines[i];
+
+				// Stop if we hit the next table
+				if (i > tableLineIndex && nextTablePattern.test(line)) {
+					break;
+				}
+
+				// Check if this is our column
+				if (columnPattern.test(line)) {
+					const uri = vscode.Uri.file(yamlPath);
+					const position = new vscode.Position(i, line.indexOf('- name:'));
+					return new vscode.Location(uri, position);
+				}
+			}
+
+			debug(`SqlLanguageService.findColumnLocationInYaml: Column "${columnName}" not found in table "${table.name}"`);
+			return undefined;
+		} catch (err) {
+			debug('SqlLanguageService.findColumnLocationInYaml: Error reading file:', err);
+			return undefined;
+		}
 	}
 
 	/**

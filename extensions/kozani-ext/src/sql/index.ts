@@ -11,6 +11,7 @@
 import * as vscode from 'vscode';
 import { SqlLanguageService } from './SqlLanguageService';
 import { SqlHoverProvider } from './providers/HoverProvider';
+import { SqlDefinitionProvider } from './providers/DefinitionProvider';
 import { debug } from '../debug';
 
 // Export types for external use
@@ -44,13 +45,20 @@ export function registerSqlLanguageFeatures(
 		new SqlHoverProvider(service)
 	);
 
+	// Register definition provider (Go to Definition / Cmd+Click)
+	const definitionProvider = vscode.languages.registerDefinitionProvider(
+		selector,
+		new SqlDefinitionProvider(service)
+	);
+
 	// Add to subscriptions for cleanup
 	context.subscriptions.push(hoverProvider);
+	context.subscriptions.push(definitionProvider);
 	context.subscriptions.push({
 		dispose: () => service.dispose(),
 	});
 
-	debug('SQL Language Service: Registered hover provider for pgsql/vscode-notebook-cell');
+	debug('SQL Language Service: Registered hover and definition providers for pgsql/vscode-notebook-cell');
 
 	return service;
 }
