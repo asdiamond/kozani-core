@@ -30,14 +30,20 @@
         "type": "kozani-notebook",
         "displayName": "SQL Notebook",
         "selector": [
-          { "filenamePattern": "*.sqlbook" }
+          {
+            "filenamePattern": "*.sqlbook"
+          }
         ]
       }
     ],
     "languages": [
       {
         "id": "pgsql",
-        "aliases": ["PostgreSQL", "Postgres", "pgsql"],
+        "aliases": [
+          "PostgreSQL",
+          "Postgres",
+          "pgsql"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -206,6 +212,7 @@
   },
   "dependencies": {
     "pg": "^8.13.1",
+    "pgsql-parser": "^17.9.5",
     "web-tree-sitter": "^0.22.6",
     "yaml": "^2.7.0"
   },

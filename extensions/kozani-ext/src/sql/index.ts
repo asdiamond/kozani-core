@@ -6,7 +6,7 @@
  * - Completions: Table/column/keyword suggestions (tree-sitter based)
  * - Go to Definition: Jump to schema YAML definitions
  * - Tree-sitter based parsing for accurate context detection
- * - (Future) Diagnostics: Syntax and semantic errors
+ * - Diagnostics: Syntax errors via libpg_query (red squiggles)
  * - (Future) Code Actions: Quick fixes
  */
 
@@ -15,6 +15,7 @@ import { SqlLanguageService } from './SqlLanguageService';
 import { SqlHoverProvider } from './providers/HoverProvider';
 import { SqlDefinitionProvider } from './providers/DefinitionProvider';
 import { SqlCompletionProvider } from './providers/CompletionProvider';
+import { SqlDiagnosticsProvider } from './providers/DiagnosticsProvider';
 import { debug } from '../debug';
 
 // Export types for external use
@@ -26,6 +27,9 @@ export * from './parser';
 
 // Export completions module
 export * from './completions';
+
+// Export validator module
+export * from './validator';
 
 /**
  * Register all SQL language features for Kozani notebooks.
@@ -67,15 +71,19 @@ export function registerSqlLanguageFeatures(
 		'.', // Trigger on dot for table.column completions
 	);
 
+	// Register diagnostics provider (syntax errors / red squiggles)
+	const diagnosticsProvider = new SqlDiagnosticsProvider();
+
 	// Add to subscriptions for cleanup
 	context.subscriptions.push(hoverProvider);
 	context.subscriptions.push(definitionProvider);
 	context.subscriptions.push(completionProvider);
+	context.subscriptions.push(diagnosticsProvider);
 	context.subscriptions.push({
 		dispose: () => service.dispose(),
 	});
 
-	debug('SQL Language Service: Registered hover, definition, and completion providers for pgsql/vscode-notebook-cell');
+	debug('SQL Language Service: Registered hover, definition, completion, and diagnostics providers for pgsql/vscode-notebook-cell');
 
 	return service;
 }
