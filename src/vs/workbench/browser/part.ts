@@ -159,6 +159,11 @@ export abstract class Part<MementoType extends object = object> extends Componen
 		}
 	}
 
+	protected setTitleAreaVisibility(visible: boolean): void {
+		this.partLayout?.setTitleVisibility(visible);
+		this.relayout();
+	}
+
 	private relayout() {
 		if (this.dimension && this.contentPosition) {
 			this.layout(this.dimension.width, this.dimension.height, this.contentPosition.top, this.contentPosition.left);
@@ -207,6 +212,7 @@ class PartLayout {
 
 	private headerVisible: boolean = false;
 	private footerVisible: boolean = false;
+	private titleVisible: boolean = true;
 
 	constructor(private options: IPartOptions, private contentArea: HTMLElement | undefined) { }
 
@@ -214,7 +220,7 @@ class PartLayout {
 
 		// Title Size: Width (Fill), Height (Variable)
 		let titleSize: Dimension;
-		if (this.options.hasTitle) {
+		if (this.options.hasTitle && this.titleVisible) {
 			titleSize = new Dimension(width, Math.min(height, PartLayout.TITLE_HEIGHT));
 		} else {
 			titleSize = Dimension.None;
@@ -258,6 +264,10 @@ class PartLayout {
 
 	setHeaderVisibility(visible: boolean): void {
 		this.headerVisible = visible;
+	}
+
+	setTitleVisibility(visible: boolean): void {
+		this.titleVisible = visible;
 	}
 }
 

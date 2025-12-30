@@ -20,6 +20,11 @@
 	background-color: var(--vscode-sideBarTitle-background);
 }
 
+/* Kozani: Hide the "EXPLORER" title row when activity bar is at top (like Cursor) */
+.monaco-workbench .part.sidebar.pane-composite-part:has(> .header-or-footer) > .title {
+	display: none;
+}
+
 .monaco-workbench .part.sidebar > .title > .title-label h2 {
 	text-transform: uppercase;
 }

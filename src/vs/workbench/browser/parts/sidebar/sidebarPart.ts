@@ -129,7 +129,17 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			this.activityBarPart.show();
 		}
 
+		// Kozani: Hide title area layout when activity bar is at top/bottom (like Cursor)
+		this.setTitleAreaVisibility(!this.shouldShowCompositeBar());
+
 		this.rememberActivityBarVisiblePosition();
+	}
+
+	override create(parent: HTMLElement, options?: object): void {
+		super.create(parent, options);
+
+		// Kozani: Set initial title area visibility based on activity bar position
+		this.setTitleAreaVisibility(!this.shouldShowCompositeBar());
 	}
 
 	override updateStyles(): void {
