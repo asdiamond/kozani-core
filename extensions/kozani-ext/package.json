@@ -21,6 +21,20 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "themes": [
+      {
+        "id": "Kozani Light",
+        "label": "Kozani Light",
+        "uiTheme": "vs",
+        "path": "./themes/kozani-light.json"
+      },
+      {
+        "id": "Kozani Dark",
+        "label": "Kozani Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/kozani-dark.json"
+      }
+    ],
     "configurationDefaults": {
       "files.autoSave": "afterDelay",
       "files.autoSaveDelay": 1000,
@@ -29,7 +43,8 @@
       "workbench.layoutControl.type": "toggles",
       "workbench.navigationControl.enabled": false,
       "window.commandCenter": false,
-      "workbench.statusBar.visible": false
+      "workbench.statusBar.visible": false,
+      "workbench.colorTheme": "Kozani Light"
     },
     "notebooks": [
       {
