@@ -79,22 +79,14 @@
         ]
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "kozani-database",
-          "title": "Database Explorer",
-          "icon": "$(database)"
-        }
-      ]
-    },
     "views": {
-      "kozani-database": [
+      "explorer": [
         {
           "id": "kozani.connections",
-          "name": "Connections",
+          "name": "Database Connections",
           "icon": "$(database)",
-          "contextualTitle": "Database Connections"
+          "contextualTitle": "Database Connections",
+          "order": 0
         }
       ]
     },

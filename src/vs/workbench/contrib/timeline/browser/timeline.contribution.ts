@@ -31,7 +31,7 @@ export class TimelinePaneDescriptor implements IViewDescriptor {
 	readonly name: ILocalizedString = TimelinePane.TITLE;
 	readonly containerIcon = timelineViewIcon;
 	readonly ctorDescriptor = new SyncDescriptor(TimelinePane);
-	readonly order = 2;
+	readonly order = 11;
 	readonly weight = 30;
 	readonly collapsed = true;
 	readonly canToggleVisibility = true;

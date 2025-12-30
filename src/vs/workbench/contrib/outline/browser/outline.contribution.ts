@@ -32,7 +32,7 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 	canMoveView: true,
 	hideByDefault: false,
 	collapsed: true,
-	order: 2,
+	order: 10,
 	weight: 30,
 	focusCommand: { id: 'outline.focus' }
 }], VIEW_CONTAINER);
