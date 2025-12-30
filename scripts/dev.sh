@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wrapper script to launch Code - OSS in development mode with the kozani extension
+# Wrapper script to launch Kozani in development mode with the kozani extension
 # This hides the --extensionDevelopmentPath from Cursor's argument detection
 
 set -e
