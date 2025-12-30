@@ -23,7 +23,8 @@
   "contributes": {
     "configurationDefaults": {
       "files.autoSave": "afterDelay",
-      "files.autoSaveDelay": 1000
+      "files.autoSaveDelay": 1000,
+      "workbench.activityBar.location": "top"
     },
     "notebooks": [
       {
