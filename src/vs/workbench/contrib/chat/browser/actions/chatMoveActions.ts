@@ -38,12 +38,7 @@ export function registerMoveActions() {
 				category: CHAT_CATEGORY,
 				precondition: ChatContextKeys.enabled,
 				f1: true,
-				menu: {
-					id: MenuId.ViewTitle,
-					when: ContextKeyExpr.equals('view', ChatViewId),
-					order: 0,
-					group: '1_open'
-				},
+				// Kozani: Removed menu registration to hide from overflow menu
 			});
 		}
 
@@ -61,12 +56,7 @@ export function registerMoveActions() {
 				category: CHAT_CATEGORY,
 				precondition: ChatContextKeys.enabled,
 				f1: true,
-				menu: {
-					id: MenuId.ViewTitle,
-					when: ContextKeyExpr.equals('view', ChatViewId),
-					order: 0,
-					group: '1_open'
-				},
+				// Kozani: Removed menu registration to hide from overflow menu
 			});
 		}
 

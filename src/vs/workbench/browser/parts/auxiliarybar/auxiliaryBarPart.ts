@@ -98,7 +98,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			Parts.AUXILIARYBAR_PART,
 			{
 				hasTitle: true,
-				trailingSeparator: true,
+				trailingSeparator: false, // Kozani: Removed trailing separator
 				borderWidth: () => (this.getColor(SIDE_BAR_BORDER) || this.getColor(contrastBorder)) ? 1 : 0,
 			},
 			AuxiliaryBarPart.activeViewSettingsKey,
@@ -236,7 +236,8 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 	}
 
 	protected shouldShowCompositeBar(): boolean {
-		return this.configuration.position !== ActivityBarPosition.HIDDEN;
+		// Kozani: Never show composite bar in auxiliary bar (we only have one panel - Chat)
+		return false;
 	}
 
 	protected getCompositeBarPosition(): CompositeBarPosition {

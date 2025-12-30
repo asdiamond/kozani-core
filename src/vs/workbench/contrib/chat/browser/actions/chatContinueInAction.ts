@@ -61,23 +61,7 @@ export class ContinueChatInSessionAction extends Action2 {
 				ChatContextKeys.requestInProgress.negate(),
 				ChatContextKeys.remoteJobCreating.negate(),
 			),
-			menu: [{
-				id: MenuId.ChatExecute,
-				group: 'navigation',
-				order: 3.4,
-				when: ChatContextKeys.lockedToCodingAgent.negate(),
-			},
-			{
-				id: MenuId.EditorContent,
-				group: 'continueIn',
-				when: ContextKeyExpr.and(
-					ContextKeyExpr.equals(ResourceContextKey.Scheme.key, Schemas.untitled),
-					ContextKeyExpr.equals(ResourceContextKey.LangId.key, PROMPT_LANGUAGE_ID),
-					ContextKeyExpr.notEquals(chatEditingWidgetFileStateContextKey.key, ModifiedFileEntryState.Modified),
-					ctxHasEditorModification.negate(),
-				),
-			}
-			]
+			// Kozani: Removed menu registrations to hide "Continue Chat in..." button
 		});
 	}
 

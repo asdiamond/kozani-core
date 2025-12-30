@@ -229,12 +229,7 @@ class MaximizeAuxiliaryBar extends Action2 {
 			f1: true,
 			precondition: AuxiliaryBarMaximizedContext.negate(),
 			icon: maximizeIcon,
-			menu: {
-				id: MenuId.AuxiliaryBarTitle,
-				group: 'navigation',
-				order: 1,
-				when: AuxiliaryBarMaximizedContext.negate()
-			}
+			// Kozani: Removed menu registration to hide maximize button from auxiliary bar title
 		});
 	}
 
@@ -260,12 +255,7 @@ class RestoreAuxiliaryBar extends Action2 {
 			precondition: AuxiliaryBarMaximizedContext,
 			toggled: AuxiliaryBarMaximizedContext,
 			icon: maximizeIcon,
-			menu: {
-				id: MenuId.AuxiliaryBarTitle,
-				group: 'navigation',
-				order: 1,
-				when: AuxiliaryBarMaximizedContext
-			}
+			// Kozani: Removed menu registration to hide restore button from auxiliary bar title
 		});
 	}
 

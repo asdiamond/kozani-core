@@ -122,12 +122,7 @@ class ConfigureToolsAction extends Action2 {
 			f1: false,
 			category: CHAT_CATEGORY,
 			precondition: ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
-			menu: [{
-				when: ContextKeyExpr.and(ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent), ChatContextKeys.lockedToCodingAgent.negate()),
-				id: MenuId.ChatInput,
-				group: 'navigation',
-				order: 100,
-			}]
+			// Kozani: Removed menu registration to hide tools icon from chat input
 		});
 	}
 

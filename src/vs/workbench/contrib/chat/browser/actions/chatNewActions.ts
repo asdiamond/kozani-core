@@ -46,15 +46,16 @@ export interface INewEditSessionActionContext {
 
 export function registerNewChatActions() {
 
-	// Add "New Chat" submenu to Chat view menu
+	// Kozani: Changed from split button with submenu to simple button
 	MenuRegistry.appendMenuItem(MenuId.ViewTitle, {
-		submenu: MenuId.ChatNewMenu,
-		title: localize2('chat.newEdits.label', "New Chat"),
-		icon: Codicon.plus,
+		command: {
+			id: ACTION_ID_NEW_CHAT,
+			title: localize2('chat.newEdits.label', "New Chat"),
+			icon: Codicon.plus,
+		},
 		when: ContextKeyExpr.equals('view', ChatViewId),
 		group: 'navigation',
 		order: -1,
-		isSplitButton: true
 	});
 
 	registerAction2(class NewChatEditorAction extends Action2 {
@@ -178,13 +179,7 @@ export function registerNewChatActions() {
 				icon: Codicon.discard,
 				precondition: ContextKeyExpr.and(ChatContextKeys.chatEditingCanUndo, ChatContextKeys.enabled),
 				f1: true,
-				menu: [{
-					id: MenuId.ViewTitle,
-					when: ContextKeyExpr.equals('view', ChatViewId),
-					group: 'navigation',
-					order: -3,
-					isHiddenByDefault: true
-				}]
+				// Kozani: Removed menu registration to hide from view title
 			});
 		}
 
@@ -202,15 +197,7 @@ export function registerNewChatActions() {
 				icon: Codicon.redo,
 				precondition: ContextKeyExpr.and(ChatContextKeys.chatEditingCanRedo, ChatContextKeys.enabled),
 				f1: true,
-				menu: [
-					{
-						id: MenuId.ViewTitle,
-						when: ContextKeyExpr.equals('view', ChatViewId),
-						group: 'navigation',
-						order: -2,
-						isHiddenByDefault: true
-					}
-				]
+				// Kozani: Removed menu registration to hide from view title
 			});
 		}
 

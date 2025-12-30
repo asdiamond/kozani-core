@@ -508,25 +508,8 @@ export function registerChatActions() {
 			super({
 				id: `workbench.action.chat.history`,
 				title: localize2('chat.history.label', "Show Chats..."),
+				// Kozani: Removed menu registrations from ViewTitle (keeping only EditorTitle)
 				menu: [
-					{
-						id: MenuId.ViewTitle,
-						when: ContextKeyExpr.and(
-							ContextKeyExpr.equals('view', ChatViewId),
-							ContextKeyExpr.equals(`config.${ChatConfiguration.ChatViewRecentSessionsEnabled}`, false)
-						),
-						group: 'navigation',
-						order: 2
-					},
-					{
-						id: MenuId.ViewTitle,
-						when: ContextKeyExpr.and(
-							ContextKeyExpr.equals('view', ChatViewId),
-							ContextKeyExpr.equals(`config.${ChatConfiguration.ChatViewRecentSessionsEnabled}`, true)
-						),
-						group: '2_history',
-						order: 1
-					},
 					{
 						id: MenuId.EditorTitle,
 						when: ActiveEditorContext.isEqualTo(ChatEditorInput.EditorID),
@@ -1569,14 +1552,15 @@ Update \`.github/copilot-instructions.md\` for the user, then ask for feedback o
 		}
 	});
 
-	MenuRegistry.appendMenuItem(MenuId.ViewTitle, {
-		submenu: CHAT_CONFIG_MENU_ID,
-		title: localize2('config.label', "Configure Chat"),
-		group: 'navigation',
-		when: ContextKeyExpr.equals('view', ChatViewId),
-		icon: Codicon.gear,
-		order: 6
-	});
+	// Kozani: Removed settings gear menu item from chat view title
+	// MenuRegistry.appendMenuItem(MenuId.ViewTitle, {
+	// 	submenu: CHAT_CONFIG_MENU_ID,
+	// 	title: localize2('config.label', "Configure Chat"),
+	// 	group: 'navigation',
+	// 	when: ContextKeyExpr.equals('view', ChatViewId),
+	// 	icon: Codicon.gear,
+	// 	order: 6
+	// });
 }
 
 export function stringifyItem(item: IChatRequestViewModel | IChatResponseViewModel, includeName = true): string {
@@ -1794,15 +1778,7 @@ registerAction2(class ToggleDefaultVisibilityAction extends Action2 {
 			title: localize2('chat.toggleDefaultVisibility.label', "Show View by Default"),
 			toggled: ContextKeyExpr.equals('config.workbench.secondarySideBar.defaultVisibility', 'hidden').negate(),
 			f1: false,
-			menu: {
-				id: MenuId.ViewTitle,
-				when: ContextKeyExpr.and(
-					ContextKeyExpr.equals('view', ChatViewId),
-					ChatContextKeys.panelLocation.isEqualTo(ViewContainerLocation.AuxiliaryBar),
-				),
-				order: 0,
-				group: '5_configure'
-			},
+			// Kozani: Removed menu registration to hide from overflow menu
 		});
 	}
 

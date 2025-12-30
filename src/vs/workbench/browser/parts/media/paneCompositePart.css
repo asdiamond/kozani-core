@@ -30,8 +30,9 @@
 	background-color: var(--vscode-activityBarTop-background);
 }
 
+/* Kozani: Removed border separator between activity bar icons and content */
 .monaco-workbench .pane-composite-part:not(.empty) > .header {
-	border-bottom: 1px solid var(--vscode-sideBarActivityBarTop-border);
+	border-bottom: none;
 }
 
 .monaco-workbench .pane-composite-part:not(.empty) > .footer {
@@ -296,10 +297,16 @@
 	background-color: var(--vscode-activityBarTop-activeBackground);
 }
 
+/* Kozani: Hide active item indicator underline for sidebar header icons */
+.monaco-workbench .pane-composite-part.sidebar > .header-or-footer > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item.checked .active-item-indicator:before,
+.monaco-workbench .pane-composite-part.sidebar > .header-or-footer > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item:focus .active-item-indicator:before {
+	display: none;
+}
+
 .monaco-workbench .pane-composite-part > .title > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item.checked .active-item-indicator:before,
 .monaco-workbench .pane-composite-part > .title > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item:focus .active-item-indicator:before,
-.monaco-workbench .pane-composite-part > .header-or-footer > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item.checked .active-item-indicator:before,
-.monaco-workbench .pane-composite-part > .header-or-footer > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item:focus .active-item-indicator:before {
+.monaco-workbench .pane-composite-part:not(.sidebar) > .header-or-footer > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item.checked .active-item-indicator:before,
+.monaco-workbench .pane-composite-part:not(.sidebar) > .header-or-footer > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item:focus .active-item-indicator:before {
 	content: "";
 	position: absolute;
 	z-index: 1;

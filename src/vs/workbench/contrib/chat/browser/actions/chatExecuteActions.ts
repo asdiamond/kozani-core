@@ -467,18 +467,7 @@ export class OpenModePickerAction extends Action2 {
 				primary: KeyMod.CtrlCmd | KeyCode.Period,
 				weight: KeybindingWeight.EditorContrib
 			},
-			menu: [
-				{
-					id: MenuId.ChatInput,
-					order: 1,
-					when: ContextKeyExpr.and(
-						ChatContextKeys.enabled,
-						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
-						ChatContextKeys.inQuickChat.negate(),
-						ChatContextKeys.lockedToCodingAgent.negate()),
-					group: 'navigation',
-				},
-			]
+			// Kozani: Removed menu registration to hide agent dropdown from chat input
 		});
 	}
 

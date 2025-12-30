@@ -24,7 +24,12 @@
     "configurationDefaults": {
       "files.autoSave": "afterDelay",
       "files.autoSaveDelay": 1000,
-      "workbench.activityBar.location": "top"
+      "workbench.activityBar.location": "top",
+      "chat.commandCenter.enabled": false,
+      "workbench.layoutControl.type": "toggles",
+      "workbench.navigationControl.enabled": false,
+      "window.commandCenter": false,
+      "workbench.statusBar.visible": false
     },
     "notebooks": [
       {

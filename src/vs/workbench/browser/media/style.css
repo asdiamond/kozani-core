@@ -320,3 +320,30 @@ body {
 	outline: 1px dashed var(--vscode-toolbar-hoverOutline);
 	outline-offset: -1px;
 }
+
+/* Kozani: Disable focus outline on lists/views globally */
+.monaco-workbench .monaco-list:not(.element-focused):not(:active):focus:before {
+	outline: none !important;
+}
+
+/* Kozani: Disable focus outline on chat input container */
+.monaco-workbench .interactive-session .chat-input-container.focused {
+	border-color: var(--vscode-input-border, transparent) !important;
+}
+
+/* Kozani: Disable focus outline on chat list items */
+.monaco-workbench .interactive-list .monaco-list-row.focused {
+	outline: none !important;
+}
+
+.monaco-workbench .interactive-list .monaco-list:focus .monaco-list-row.focused {
+	outline: none !important;
+}
+
+.monaco-workbench .interactive-list .monaco-list:focus .monaco-list-row.focused .rendered-markdown {
+	outline: none !important;
+}
+
+.monaco-workbench .interactive-session .interactive-item-container .value .rendered-markdown {
+	outline: none !important;
+}
