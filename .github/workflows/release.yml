@@ -128,7 +128,7 @@ jobs:
         run: |
           set -e
           for i in {1..3}; do
-            npm exec -- gulp "electron-$VSCODE_ARCH" && break
+            npm exec -- gulp "electron $VSCODE_ARCH" && break
             if [ $i -eq 3 ]; then
               echo "Electron download failed after 3 attempts" >&2
               exit 1
