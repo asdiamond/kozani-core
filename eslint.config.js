@@ -158,6 +158,16 @@ export default tseslint.config(
 			'semi': 'off',
 			'@stylistic/ts/semi': 'warn',
 			'@stylistic/ts/member-delimiter-style': 'warn',
+			// Treat unused imports as errors to catch them before CI builds
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					'vars': 'all',
+					'args': 'none', // Don't error on unused function arguments
+					'ignoreRestSiblings': true,
+					'varsIgnorePattern': '^_' // Allow _prefixed variables to be unused
+				}
+			],
 			'local/code-no-unused-expressions': [
 				'warn',
 				{
