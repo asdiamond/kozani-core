@@ -181,7 +181,7 @@ jobs:
 
           APP_ROOT="../VSCode-darwin-$VSCODE_ARCH"
           APP_NAME="Kozani.app"
-          DMG_NAME="Kozani-${VERSION}-arm64.dmg"
+          DMG_NAME="Kozani-${VERSION}-${COMMIT}-arm64.dmg"
           VOLUME_NAME="Kozani"
 
           # Create a temporary directory for DMG contents
@@ -253,7 +253,7 @@ jobs:
         run: |
           set -e
           ZIP_NAME="kozani-darwin-arm64-${VERSION}-${COMMIT}.zip"
-          DMG_NAME="Kozani-${VERSION}-arm64.dmg"
+          DMG_NAME="Kozani-${VERSION}-${COMMIT}-arm64.dmg"
           BUCKET="kozani-updates"
 
           # Upload the zip file (used for auto-updates)
@@ -304,7 +304,7 @@ jobs:
         with:
           files: |
             kozani-darwin-arm64-*.zip
-            Kozani-*-arm64.dmg
+            Kozani-*-*-arm64.dmg
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
