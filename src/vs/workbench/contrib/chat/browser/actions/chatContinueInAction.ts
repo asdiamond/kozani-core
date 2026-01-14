@@ -6,7 +6,6 @@
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { h } from '../../../../../base/browser/dom.js';
 import { Disposable, IDisposable, markAsSingleton } from '../../../../../base/common/lifecycle.js';
-import { Schemas } from '../../../../../base/common/network.js';
 import { basename } from '../../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -24,20 +23,16 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
-import { ResourceContextKey } from '../../../../common/contextkeys.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IChatAgentService } from '../../common/chatAgents.js';
 import { ChatContextKeys } from '../../common/chatContextKeys.js';
-import { chatEditingWidgetFileStateContextKey, ModifiedFileEntryState } from '../../common/chatEditingService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { ChatRequestParser } from '../../common/chatRequestParser.js';
 import { IChatService } from '../../common/chatService.js';
 import { IChatSessionsExtensionPoint, IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatAgentLocation } from '../../common/constants.js';
-import { PROMPT_LANGUAGE_ID } from '../../common/promptSyntax/promptTypes.js';
 import { AgentSessionProviders, getAgentSessionProviderIcon, getAgentSessionProviderName } from '../agentSessions/agentSessions.js';
 import { IChatWidgetService } from '../chat.js';
-import { ctxHasEditorModification } from '../chatEditing/chatEditingEditorContextKeys.js';
 import { CHAT_SETUP_ACTION_ID } from './chatActions.js';
 import { PromptFileVariableKind, toPromptFileVariableEntry } from '../../common/chatVariableEntries.js';
 import { NEW_CHAT_SESSION_ACTION_ID } from '../chatSessions/common.js';

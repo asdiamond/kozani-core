@@ -135,8 +135,8 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		this.rememberActivityBarVisiblePosition();
 	}
 
-	override create(parent: HTMLElement, options?: object): void {
-		super.create(parent, options);
+	override create(parent: HTMLElement): void {
+		super.create(parent);
 
 		// Kozani: Set initial title area visibility based on activity bar position
 		this.setTitleAreaVisibility(!this.shouldShowCompositeBar());
