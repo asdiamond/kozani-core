@@ -18,7 +18,8 @@ env:
 jobs:
   build-macos:
     name: Build macOS ARM64
-    runs-on: macos-14
+    runs-on: macos-14-xlarge
+    timeout-minutes: 60
     outputs:
       version: ${{ steps.version.outputs.version }}
       commit: ${{ steps.version.outputs.commit }}
