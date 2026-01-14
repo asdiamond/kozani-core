@@ -172,11 +172,56 @@ jobs:
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "Built $ZIP_NAME with SHA256: $SHA256"
 
-      - name: Upload artifact
+      - name: Create DMG installer
+        id: dmg
+        run: |
+          set -e
+          VERSION="${{ steps.version.outputs.version }}"
+          COMMIT="${{ steps.version.outputs.commit }}"
+
+          APP_ROOT="../VSCode-darwin-$VSCODE_ARCH"
+          APP_NAME="Kozani.app"
+          DMG_NAME="Kozani-${VERSION}-arm64.dmg"
+          VOLUME_NAME="Kozani"
+
+          # Create a temporary directory for DMG contents
+          DMG_TEMP="dmg_temp"
+          mkdir -p "$DMG_TEMP"
+
+          # Copy the app to the temp directory
+          cp -R "$APP_ROOT/$APP_NAME" "$DMG_TEMP/"
+
+          # Create a symlink to Applications
+          ln -s /Applications "$DMG_TEMP/Applications"
+
+          # Create the DMG
+          hdiutil create -volname "$VOLUME_NAME" \
+            -srcfolder "$DMG_TEMP" \
+            -ov -format UDZO \
+            "$GITHUB_WORKSPACE/$DMG_NAME"
+
+          # Cleanup
+          rm -rf "$DMG_TEMP"
+
+          # Calculate SHA256
+          DMG_SHA256=$(shasum -a 256 "$GITHUB_WORKSPACE/$DMG_NAME" | cut -d ' ' -f 1)
+
+          echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
+          echo "dmg_sha256=$DMG_SHA256" >> $GITHUB_OUTPUT
+          echo "Built $DMG_NAME with SHA256: $DMG_SHA256"
+
+      - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kozani-darwin-arm64
+          name: kozani-darwin-arm64-zip
           path: ${{ steps.package.outputs.zip_name }}
+          retention-days: 30
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kozani-darwin-arm64-dmg
+          path: ${{ steps.dmg.outputs.dmg_name }}
           retention-days: 30
 
   upload-release:
@@ -184,10 +229,15 @@ jobs:
     needs: build-macos
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifact
+      - name: Download zip artifact
         uses: actions/download-artifact@v4
         with:
-          name: kozani-darwin-arm64
+          name: kozani-darwin-arm64-zip
+
+      - name: Download DMG artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kozani-darwin-arm64-dmg
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -203,16 +253,22 @@ jobs:
         run: |
           set -e
           ZIP_NAME="kozani-darwin-arm64-${VERSION}-${COMMIT}.zip"
+          DMG_NAME="Kozani-${VERSION}-arm64.dmg"
           BUCKET="kozani-updates"
 
-          # Upload the zip file
+          # Upload the zip file (used for auto-updates)
           aws s3 cp "$ZIP_NAME" "s3://${BUCKET}/releases/darwin-arm64/${ZIP_NAME}"
 
-          # Calculate SHA256
-          SHA256=$(sha256sum "$ZIP_NAME" | cut -d ' ' -f 1)
+          # Upload the DMG file (used for manual downloads)
+          aws s3 cp "$DMG_NAME" "s3://${BUCKET}/releases/darwin-arm64/${DMG_NAME}"
+
+          # Calculate SHA256 for both
+          ZIP_SHA256=$(sha256sum "$ZIP_NAME" | cut -d ' ' -f 1)
+          DMG_SHA256=$(sha256sum "$DMG_NAME" | cut -d ' ' -f 1)
 
           # Create/update latest.json
-          DOWNLOAD_URL="https://${BUCKET}.s3.amazonaws.com/releases/darwin-arm64/${ZIP_NAME}"
+          ZIP_URL="https://${BUCKET}.s3.amazonaws.com/releases/darwin-arm64/${ZIP_NAME}"
+          DMG_URL="https://${BUCKET}.s3.amazonaws.com/releases/darwin-arm64/${DMG_NAME}"
 
           # Try to get existing latest.json, or start with empty object
           aws s3 cp "s3://${BUCKET}/releases/latest.json" latest.json 2>/dev/null || echo '{}' > latest.json
@@ -220,13 +276,17 @@ jobs:
           # Update with new release info using jq
           cat latest.json | jq --arg version "$GITHUB_SHA" \
                                --arg productVersion "$VERSION" \
-                               --arg url "$DOWNLOAD_URL" \
-                               --arg sha256hash "$SHA256" \
+                               --arg url "$ZIP_URL" \
+                               --arg sha256hash "$ZIP_SHA256" \
+                               --arg dmgUrl "$DMG_URL" \
+                               --arg dmgSha256 "$DMG_SHA256" \
                                '."darwin-arm64" = {
                                   "version": $version,
                                   "productVersion": $productVersion,
                                   "url": $url,
-                                  "sha256hash": $sha256hash
+                                  "sha256hash": $sha256hash,
+                                  "dmgUrl": $dmgUrl,
+                                  "dmgSha256": $dmgSha256
                                 }' > latest_updated.json
 
           # Upload updated manifest
@@ -234,14 +294,17 @@ jobs:
             --content-type "application/json"
 
           echo "Release uploaded successfully!"
-          echo "Download URL: $DOWNLOAD_URL"
+          echo "Zip URL: $ZIP_URL"
+          echo "DMG URL: $DMG_URL"
           cat latest_updated.json
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: kozani-darwin-arm64-*.zip
+          files: |
+            kozani-darwin-arm64-*.zip
+            Kozani-*-arm64.dmg
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

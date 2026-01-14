@@ -84,6 +84,13 @@
 			}
 		}
 	],
+	"extensionEnabledApiProposals": {
+		"kozani.kozani-ext": [
+			"chatProvider",
+			"defaultChatParticipant",
+			"chatParticipantAdditions"
+		]
+	},
 	"defaultChatAgent": {
 		"extensionId": "kozani.kozani-ext",
 		"chatExtensionId": "kozani.kozani-ext",
