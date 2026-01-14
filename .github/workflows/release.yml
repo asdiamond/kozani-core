@@ -125,6 +125,12 @@ jobs:
           path: .build/builtInExtensions
           key: "builtin-extensions-${{ hashFiles('.build/builtindepshash') }}"
 
+      - name: Install and compile kozani-ext
+        run: |
+          cd extensions/kozani-ext
+          npm install
+          npm run compile
+
       - name: Download Electron
         run: |
           set -e
