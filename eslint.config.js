@@ -130,13 +130,26 @@ export default tseslint.config(
 			]
 		},
 	},
-	// Disable header check for kozani-ext
+	// Kozani-ext specific rules
 	{
 		files: [
 			'extensions/kozani-ext/**/*.ts',
 		],
+		plugins: {
+			'@typescript-eslint': tseslint.plugin,
+		},
 		rules: {
-			'header/header': 'off'
+			'header/header': 'off',
+			// Treat unused imports as errors in Kozani code
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					'vars': 'all',
+					'args': 'none',
+					'ignoreRestSiblings': true,
+					'varsIgnorePattern': '^_'
+				}
+			]
 		}
 	},
 	// TS
@@ -158,16 +171,6 @@ export default tseslint.config(
 			'semi': 'off',
 			'@stylistic/ts/semi': 'warn',
 			'@stylistic/ts/member-delimiter-style': 'warn',
-			// Treat unused imports as errors to catch them before CI builds
-			'@typescript-eslint/no-unused-vars': [
-				'error',
-				{
-					'vars': 'all',
-					'args': 'none', // Don't error on unused function arguments
-					'ignoreRestSiblings': true,
-					'varsIgnorePattern': '^_' // Allow _prefixed variables to be unused
-				}
-			],
 			'local/code-no-unused-expressions': [
 				'warn',
 				{
